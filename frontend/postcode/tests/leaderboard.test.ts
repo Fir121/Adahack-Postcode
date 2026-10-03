@@ -4,7 +4,7 @@ import { apiConfig } from "../lib/api/config";
 import { ApiError } from "../lib/api/client";
 import {
   getCommunityLeaderboard,
-  adaptLeaderboard,
+  leaderboardFromMetric,
 } from "../lib/api/leaderboard";
 import { proxyApiRequest } from "../lib/api/proxy";
 import { mockLeaderboard } from "../lib/mock/leaderboard";
@@ -21,94 +21,48 @@ Object.defineProperty(globalThis, "localStorage", {
   },
 });
 beforeEach(() => storage.clear());
-const entries = [
-  { user_id: "a", name: "Alex", rank: 2, points: 8 },
-  { user_id: "b", name: "Jamie", rank: 1, points: 12 },
+const users = [
+  { user_id: "a", name: "Alex", points: 12 },
+  { user_id: "b", name: "Jamie", points: 12 },
+  { user_id: "c", name: "Casey", points: 0 },
 ];
-test("leaderboard request uses encoded home postcode and preserves backend ranks and points", async (t) => {
+test("leaderboard uses postcode metrics and ranks real member points with competition ties", async (t) => {
   const previous = apiConfig.useMock;
   apiConfig.useMock = false;
   t.mock.method(globalThis, "fetch", async (url: string) => {
-    assert.ok(url.endsWith("/postcodes/EH9%201AB/leaderboard"));
-    return Response.json({ postcode: "EH9 1AB", entries });
+    assert.ok(url.endsWith("/metrics/EH9%201AB"));
+    return Response.json({ postcode: "EH9 1AB", users });
   });
   try {
     const result = await getCommunityLeaderboard("eh91ab");
+    assert.equal(result.source, "api");
     assert.equal(result.available, true);
     assert.deepEqual(
       result.entries.map((entry) => [entry.userId, entry.rank, entry.points]),
       [
+        ["a", 1, 12],
         ["b", 1, 12],
-        ["a", 2, 8],
+        ["c", 3, 0],
       ],
     );
   } finally {
     apiConfig.useMock = previous;
   }
 });
-test("missing leaderboard endpoint derives real activity points; empty results and failures stay distinct", async (t) => {
+test("metrics rankings distinguish omitted users, empty rankings, and failed requests", async (t) => {
   const previous = apiConfig.useMock;
   apiConfig.useMock = false;
   try {
-    for (const status of [404, 501]) {
-      t.mock.method(globalThis, "fetch", async (url: string) => {
-        if (url.endsWith("/users"))
-          return Response.json([
-            {
-              user_id: "a",
-              name: "Alex",
-              email: "a@example.test",
-              postcode: "EH9 1AB",
-            },
-            {
-              user_id: "b",
-              name: "Jamie",
-              email: "b@example.test",
-              postcode: "EH9 1AB",
-            },
-            {
-              user_id: "outside",
-              name: "Other",
-              email: "other@example.test",
-              postcode: "EH9 1AD",
-            },
-          ]);
-        if (url.includes("/activities/"))
-          return Response.json([
-            {
-              user_id: url.endsWith("/a") ? "a" : "b",
-              task_id: "1",
-              date: "2026-10-03",
-              points: 4,
-            },
-            {
-              user_id: url.endsWith("/a") ? "a" : "b",
-              task_id: "2",
-              date: "2026-10-01",
-              points: 2,
-            },
-          ]);
-        return Response.json({ message: "Coming soon" }, { status });
-      });
-      const leaderboard = await getCommunityLeaderboard("EH9 1AB");
-      assert.equal(leaderboard.available, true);
-      assert.equal(leaderboard.source, "activities");
-      assert.deepEqual(
-        leaderboard.entries.map((entry) => [
-          entry.userId,
-          entry.points,
-          entry.rank,
-        ]),
-        [
-          ["a", 6, 1],
-          ["b", 6, 1],
-        ],
-      );
-    }
     t.mock.method(globalThis, "fetch", async () =>
-      Response.json({ postcode: "EH9 1AB", entries: [] }),
+      Response.json({ postcode: "EH9 1AB" }),
     );
-    assert.equal((await getCommunityLeaderboard("EH9 1AB")).available, true);
+    assert.equal((await getCommunityLeaderboard("EH9 1AB")).available, false);
+    t.mock.method(globalThis, "fetch", async () =>
+      Response.json({ postcode: "EH9 1AB", users: [] }),
+    );
+    const empty = await getCommunityLeaderboard("EH9 1AB");
+    assert.equal(empty.available, true);
+    assert.deepEqual(empty.entries, []);
     t.mock.method(globalThis, "fetch", async () =>
       Response.json({ message: "Offline" }, { status: 503 }),
     );
@@ -117,71 +71,61 @@ test("missing leaderboard endpoint derives real activity points; empty results a
     apiConfig.useMock = previous;
   }
 });
-test("rankings reject wrong community, malformed points/ranks and duplicate identities", () => {
-  const response = { postcode: "EH9 1AB", entries };
+test("rankings reject wrong postcode, malformed points and duplicate member identities", () => {
+  const response = { postcode: "EH9 1AB", users };
   assert.throws(
-    () => adaptLeaderboard(response, "EH9 1AD"),
-    /invalid community leaderboard/,
+    () => leaderboardFromMetric(response, "EH9 1AD"),
+    /different postcode/,
   );
-  assert.throws(() =>
-    adaptLeaderboard(
-      { ...response, entries: [{ ...entries[0], points: -1 }] },
-      "EH9 1AB",
-    ),
+  assert.throws(
+    () =>
+      leaderboardFromMetric(
+        { ...response, users: [{ ...users[0], points: -1 }] },
+        "EH9 1AB",
+      ),
+    /invalid community member/,
   );
-  assert.throws(() =>
-    adaptLeaderboard(
-      { ...response, entries: [{ ...entries[0], rank: 0 }] },
-      "EH9 1AB",
-    ),
-  );
-  assert.throws(() =>
-    adaptLeaderboard(
-      { ...response, entries: [entries[0], entries[0]] },
-      "EH9 1AB",
-    ),
+  assert.throws(
+    () =>
+      leaderboardFromMetric(
+        { ...response, users: [users[0], users[0]] },
+        "EH9 1AB",
+      ),
+    /invalid community member/,
   );
 });
-test("proxy forwards only GET for leaderboard and preserves HTML not-implemented statuses", async (t) => {
+test("metrics proxy preserves encoded postcodes and trailing slash, and rejects removed leaderboard routes and metrics writes", async (t) => {
   const calls: string[] = [];
   t.mock.method(globalThis, "fetch", async (url: string) => {
     calls.push(url);
-    return new Response("<html>Not Found</html>", {
-      status: 404,
-      headers: { "content-type": "text/html" },
-    });
+    return Response.json({ postcode: "EH9 1AB" });
   });
-  const path = ["postcodes", "EH9 1AB", "leaderboard"];
-  const url = "http://app/api/backend/postcodes/EH9%201AB/leaderboard";
-  const response = await proxyApiRequest(new Request(url), path);
-  assert.equal(response.status, 404);
-  assert.match((await response.json()).message, /not available/);
-  assert.ok(calls[0].endsWith("/postcodes/EH9%201AB/leaderboard"));
-  assert.equal(
-    (await proxyApiRequest(new Request(url, { method: "POST" }), path)).status,
-    404,
-  );
+  await proxyApiRequest(new Request("http://app/metrics"), ["metrics"]);
+  await proxyApiRequest(new Request("http://app/metrics/EH9%201AB"), [
+    "metrics",
+    "EH9 1AB",
+  ]);
+  assert.ok(calls[0].endsWith("/metrics/"));
+  assert.ok(calls[1].endsWith("/metrics/EH9%201AB"));
+  for (const path of [
+    ["postcodes", "EH9 1AB", "leaderboard"],
+    ["metrics", ".."],
+    ["metrics", "postcode", "extra"],
+  ])
+    assert.equal(
+      (await proxyApiRequest(new Request("http://app/test"), path)).status,
+      404,
+    );
   assert.equal(
     (
-      await proxyApiRequest(new Request(url), [
-        "postcodes",
-        "invalid",
-        "leaderboard",
-      ])
+      await proxyApiRequest(
+        new Request("http://app/metrics", { method: "POST", body: "{}" }),
+        ["metrics"],
+      )
     ).status,
     404,
   );
-  assert.equal(
-    (
-      await proxyApiRequest(new Request(url), [
-        "postcodes",
-        "EH9 1AB",
-        "progress",
-      ])
-    ).status,
-    404,
-  );
-  assert.equal(calls.length, 1);
+  assert.equal(calls.length, 2);
 });
 test("demo ranks only approved own-community actions, updates after completion and handles ties", async () => {
   await mockLogin(demoInfo);

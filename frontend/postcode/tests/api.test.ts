@@ -60,19 +60,28 @@ test("Swagger list/detail endpoints adapt actual fields and leave missing scores
     const path = url.replace(apiConfig.baseUrl, "");
     paths.push(path);
     const body =
-      path === "/coordinates/"
-        ? [coordinate]
-        : path === "/coordinates/EH9%201AB"
-          ? coordinate
-          : path === "/tasks"
-            ? [task]
-            : path === "/tasks/1"
-              ? task
-              : path === "/users"
-                ? [user]
-                : path === "/users/test-user"
-                  ? user
-                  : null;
+      path === "/metrics/"
+        ? []
+        : path === "/metrics/EH9%201AB"
+          ? {
+              postcode: coordinate.postcode,
+              carbon_intensity: null,
+              air_quality: null,
+              users: [],
+            }
+          : path === "/coordinates/"
+            ? [coordinate]
+            : path === "/coordinates/EH9%201AB"
+              ? coordinate
+              : path === "/tasks"
+                ? [task]
+                : path === "/tasks/1"
+                  ? task
+                  : path === "/users"
+                    ? [user]
+                    : path === "/users/test-user"
+                      ? user
+                      : null;
     assert.ok(body, "Unexpected API path: " + path);
     return Response.json(body);
   });

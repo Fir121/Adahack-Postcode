@@ -24,6 +24,7 @@ import { indicatorStatus } from "@/lib/scoring";
 import { weakestIndicator } from "@/lib/tasks";
 import { dateLabel } from "@/lib/utils";
 import { IndicatorIcon } from "@/components/ui";
+import { TaskFeedbackButton } from "@/components/tasks/task-feedback-button";
 
 export type SidebarView = "overview" | "actions" | { indicatorId: string };
 interface SidebarProps {
@@ -35,6 +36,7 @@ interface SidebarProps {
   tasksLoading: boolean;
   tasksError?: string;
   onRetryTasks: () => void;
+  onRetryMetrics: () => void;
   onView: (view: SidebarView) => void;
   onTask: (task: Task) => void;
   onHome: () => void;
@@ -71,6 +73,25 @@ export function CommunitySidebar(props: SidebarProps) {
                 .join(" · ")}
         </p>
       </div>
+      {(community.dataWarnings?.score ||
+        community.dataWarnings?.indicators) && (
+        <div className="form-error">
+          {community.dataWarnings.score && (
+            <p role="alert">
+              Green Scores couldn&apos;t load. {community.dataWarnings.score}
+            </p>
+          )}
+          {community.dataWarnings.indicators && (
+            <p role="alert">
+              Environmental indicators couldn&apos;t load.{" "}
+              {community.dataWarnings.indicators}
+            </p>
+          )}
+          <button className="text-button" onClick={props.onRetryMetrics}>
+            Try again
+          </button>
+        </div>
+      )}
       <button
         className="button button-secondary leaderboard-trigger"
         onClick={props.onLeaderboard}
@@ -164,7 +185,11 @@ export function CommunitySidebar(props: SidebarProps) {
             </span>
           </div>
           <p className="indicator-subtitle">
-            Data from public sources, updated periodically.
+            {community.indicators.some(
+              (indicator) => indicator.provenance === "mock",
+            )
+              ? "Data from public sources, updated periodically."
+              : "Values reported for this postcode."}
           </p>
           {community.indicators.length ? (
             <div className="indicator-list">
@@ -181,7 +206,8 @@ export function CommunitySidebar(props: SidebarProps) {
                   <span
                     className={`indicator-status ${indicatorStatus[indicator.status].className}`}
                   >
-                    {indicatorStatus[indicator.status].label}
+                    {indicator.statusLabel ??
+                      indicatorStatus[indicator.status].label}
                   </span>
                   <ChevronRight size={14} />
                 </button>
@@ -219,7 +245,10 @@ export function CommunitySidebar(props: SidebarProps) {
                     ? `${focus.label} could use a little love`
                     : "Keep your community growing"}
                 </span>
-                <h3>{recommended.title}</h3>
+                <div className="task-heading-with-feedback">
+                  <h3>{recommended.title}</h3>
+                  <TaskFeedbackButton taskId={recommended.id} />
+                </div>
                 <p>
                   {focus && recommended.targetIndicators.includes(focus.id)
                     ? `One of ${own ? "your" : "this"} postcode's focus areas. Here's a small step that can help.`
@@ -415,7 +444,7 @@ function IndicatorDetails({
         <span
           className={`indicator-status ${indicatorStatus[indicator.status].className}`}
         >
-          {indicatorStatus[indicator.status].label}
+          {indicator.statusLabel ?? indicatorStatus[indicator.status].label}
         </span>
       </div>
       <div className="measurement-card">
@@ -475,16 +504,18 @@ function IndicatorDetails({
           </div>
         )}
       </dl>
-      <div className="activity-card">
-        <Sprout size={22} />
-        <div>
-          <strong>
-            {community.progress.activityByIndicator[indicator.id] ?? 0}
-          </strong>
-          <p>Related community actions this month</p>
-          <small>Platform activity, separate from environmental data.</small>
+      {Object.hasOwn(community.progress.activityByIndicator, indicator.id) && (
+        <div className="activity-card">
+          <Sprout size={22} />
+          <div>
+            <strong>
+              {community.progress.activityByIndicator[indicator.id] ?? 0}
+            </strong>
+            <p>Related community actions this month</p>
+            <small>Platform activity, separate from environmental data.</small>
+          </div>
         </div>
-      </div>
+      )}
       <div className="sidebar-section-heading">
         <span className="eyebrow">A LITTLE ACTION GOES A LONG WAY</span>
         <h3>Ways to lend a hand</h3>
@@ -556,42 +587,45 @@ function ActionCard({
   onTask: (task: Task) => void;
 }) {
   return (
-    <button
-      className={`action-card ${completed ? "action-completed" : ""}`}
-      onClick={() => onTask(task)}
-      disabled={!own || completed}
-    >
-      <div>
-        <span className="task-category">
-          <IndicatorIcon type={task.targetIndicators[0]} size={15} />{" "}
-          {task.category}
-        </span>
-        {completed ? <Check size={16} /> : <ArrowRight size={16} />}
-      </div>
-      <h4>{task.title}</h4>
-      <p>{task.whyItMatters}</p>
-      {task.points !== undefined ? (
-        <span className="task-meta">
-          {task.points} {task.points === 1 ? "point" : "points"}
-        </span>
-      ) : (
-        <span className="task-meta">
-          <Clock3 size={13} /> {task.estimatedTime} ·{" "}
-          {completed ? "Completed" : task.effort}
-        </span>
-      )}
-      {task.targetIndicators.length > 0 && (
-        <span className="action-targets">
-          Helps:{" "}
-          {task.targetIndicators
-            .map(
-              (id) =>
-                indicators.find((i) => i.id === id)?.label ??
-                id.replaceAll("_", " "),
-            )
-            .join(" · ")}
-        </span>
-      )}
-    </button>
+    <article className="action-card-shell">
+      <button
+        className={`action-card ${completed ? "action-completed" : ""}`}
+        onClick={() => onTask(task)}
+        disabled={!own || completed}
+      >
+        <div>
+          <span className="task-category">
+            <IndicatorIcon type={task.targetIndicators[0]} size={15} />{" "}
+            {task.category}
+          </span>
+          {completed ? <Check size={16} /> : <ArrowRight size={16} />}
+        </div>
+        <h4>{task.title}</h4>
+        <p>{task.whyItMatters}</p>
+        {task.points !== undefined ? (
+          <span className="task-meta">
+            {task.points} {task.points === 1 ? "point" : "points"}
+          </span>
+        ) : (
+          <span className="task-meta">
+            <Clock3 size={13} /> {task.estimatedTime} ·{" "}
+            {completed ? "Completed" : task.effort}
+          </span>
+        )}
+        {task.targetIndicators.length > 0 && (
+          <span className="action-targets">
+            Helps:{" "}
+            {task.targetIndicators
+              .map(
+                (id) =>
+                  indicators.find((i) => i.id === id)?.label ??
+                  id.replaceAll("_", " "),
+              )
+              .join(" · ")}
+          </span>
+        )}
+      </button>
+      <TaskFeedbackButton taskId={task.id} />
+    </article>
   );
 }

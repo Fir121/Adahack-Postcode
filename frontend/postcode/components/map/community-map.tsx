@@ -20,7 +20,6 @@ import {
 import { errorMessage } from "@/lib/utils";
 import {
   communityDecorations,
-  decorationAnimates,
   houseSaturation,
   postcodeSceneLayout,
 } from "@/lib/map/decorations";
@@ -215,10 +214,9 @@ export default function CommunityMap(props: MapProps) {
       const visible = new Set<string>();
       const decorations = communityDecorations(community);
       for (const decoration of decorations) {
-        const animated =
-          community.progress.scoreAvailable !== false &&
-          decorationAnimates(decoration.type, community.progress.score);
-        const key = `${decoration.id}:${animated}`;
+        // Source sprite playback is independent of the availability/value of a score.
+        // createAssetVisual handles reduced-motion preferences for both timelines.
+        const key = decoration.id;
         visible.add(key);
         let visual = visuals.get(key);
         if (!visual) {
@@ -229,7 +227,6 @@ export default function CommunityMap(props: MapProps) {
           const art = createAssetVisual(
             mapAssets[decoration.type],
             decoration.animation,
-            animated,
           );
           wrapper.append(art.element);
           stage!.append(wrapper);

@@ -25,11 +25,13 @@ export function isTaskAvailable(
 export function weakestIndicator(
   indicators: PostcodeIndicator[],
 ): PostcodeIndicator | undefined {
-  return [...indicators].sort(
-    (a, b) =>
-      (a.score ?? indicatorStatus[a.status].rank * 25) -
-      (b.score ?? indicatorStatus[b.status].rank * 25),
-  )[0];
+  return indicators
+    .filter((indicator) => indicator.status !== "unknown")
+    .sort(
+      (a, b) =>
+        (a.score ?? indicatorStatus[a.status].rank * 25) -
+        (b.score ?? indicatorStatus[b.status].rank * 25),
+    )[0];
 }
 
 // A deliberately small ranking function; replace with backend recommendations later.

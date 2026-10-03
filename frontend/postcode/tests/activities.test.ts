@@ -10,7 +10,9 @@ import {
   deleteActivity,
   validActivityDate,
   adaptActivity,
+  activityToCompletion,
 } from "../lib/api/activities";
+import { adaptTask, adaptUser } from "../lib/api/adapters";
 import { proxyApiRequest } from "../lib/api/proxy";
 import { dayKey } from "../lib/utils";
 
@@ -32,6 +34,7 @@ const activity = {
   task_id: "1",
   date: today,
   points: 3,
+  postcode: "EH9 1AB",
 };
 const storage = new Map<string, string>();
 Object.defineProperty(globalThis, "localStorage", {
@@ -84,29 +87,38 @@ test("activity CRUD uses exact Swagger payloads, encoded IDs and query filters",
         return new Response(null, { status: 200 });
       if (!options.method) return Response.json([activity]);
       assert.deepEqual(JSON.parse(options.body as string), {
-        task_id: "1",
-        date: today,
+        points: 3,
       });
       return Response.json(activity, {
         status: options.method === "POST" ? 201 : 200,
       });
     },
   );
-  await getActivities(user.user_id, today);
-  await createActivity(user.user_id, { task_id: "1", date: today });
-  await updateActivity(user.user_id, { task_id: "1", date: today });
-  await deleteActivity(user.user_id, "1");
-  assert.ok(
-    calls[0].url.endsWith("/activities/person%40example.test?date=" + today),
+  await getActivities({ user_id: user.user_id, date: today, task_id: "1" });
+  await createActivity(
+    { userId: user.user_id, taskId: "1", date: today },
+    { points: 3 },
   );
-  assert.ok(calls[3].url.endsWith("?task_id=1"));
+  await updateActivity(
+    { userId: user.user_id, taskId: "1", date: today },
+    { points: 3 },
+  );
+  await deleteActivity({ userId: user.user_id, taskId: "1", date: today });
+  assert.ok(
+    calls[0].url.endsWith(
+      "/activities?date=" + today + "&user_id=person%40example.test&task_id=1",
+    ),
+  );
+  assert.ok(
+    calls[3].url.endsWith("/activities/" + today + "/person%40example.test/1"),
+  );
   assert.deepEqual(
     calls.map((call) => call.options.method ?? "GET"),
     ["GET", "POST", "PUT", "DELETE"],
   );
   await assert.rejects(
-    deleteActivity(user.user_id, ""),
-    /Choose a user and task/,
+    deleteActivity({ userId: user.user_id, taskId: "", date: today }),
+    /Choose a user, task/,
   );
 });
 
@@ -126,8 +138,7 @@ test("recording uses backend activity points, history resolves task names and no
       if (options.method === "POST") {
         posts++;
         assert.deepEqual(JSON.parse(options.body as string), {
-          task_id: task.task_id,
-          date: today,
+          points: task.points,
         });
         records.push(activity);
         return Response.json(activity, { status: 201 });
@@ -165,7 +176,11 @@ test("dates and user identities validate; activity proxy forwards only documente
   assert.equal(validActivityDate("2026-02-30"), false);
   assert.equal(validActivityDate("2024-02-29"), true);
   assert.throws(
-    () => adaptActivity({ ...activity, user_id: "wrong" }, user.user_id),
+    () =>
+      adaptActivity(
+        { ...activity, user_id: "wrong" },
+        { user_id: user.user_id },
+      ),
     /invalid activity/,
   );
   const calls: string[] = [];
@@ -173,28 +188,62 @@ test("dates and user identities validate; activity proxy forwards only documente
     calls.push(url);
     return Response.json([]);
   });
-  const path = ["activities", user.user_id];
+  const path = ["activities", today, user.user_id, "1"];
   await proxyApiRequest(
-    new Request("http://app/activities/user?date=2026-10-03&ignored=true"),
-    path,
+    new Request(
+      "http://app/activities?date=" +
+        today +
+        "&user_id=person%40example.test&task_id=1&ignored=true",
+    ),
+    ["activities"],
   );
   await proxyApiRequest(
-    new Request("http://app/activities/user?task_id=1&date=2026-10-03", {
-      method: "DELETE",
-    }),
+    new Request("http://app/activity?ignored=true", { method: "DELETE" }),
     path,
   );
   assert.ok(
-    calls[0].endsWith("/activities/person%40example.test?date=2026-10-03"),
+    calls[0].endsWith(
+      "/activities?date=" + today + "&user_id=person%40example.test&task_id=1",
+    ),
   );
-  assert.ok(calls[1].endsWith("/activities/person%40example.test?task_id=1"));
+  assert.ok(
+    calls[1].endsWith("/activities/" + today + "/person%40example.test/1"),
+  );
+  for (const [method, segments] of [
+    ["PATCH", path],
+    ["GET", path],
+    ["GET", ["activities", user.user_id]],
+    ["POST", ["activities"]],
+    ["DELETE", ["activities", "2026-02-30", "user", "1"]],
+  ] as const) {
+    assert.equal(
+      (
+        await proxyApiRequest(new Request("http://app/activity", { method }), [
+          ...segments,
+        ])
+      ).status,
+      404,
+    );
+  }
+  assert.equal(calls.length, 2);
+  const withoutPoints = {
+    user_id: activity.user_id,
+    task_id: activity.task_id,
+    date: activity.date,
+  };
+  assert.equal(adaptActivity(withoutPoints).points, undefined);
+  const historic = activityToCompletion(
+    { ...activity, postcode: "EH9 1AD" },
+    adaptUser(user),
+    [adaptTask(task)],
+  );
+  assert.equal(historic.communityId, "eh9-1ad");
   assert.equal(
-    (
-      await proxyApiRequest(
-        new Request("http://app/activities/user", { method: "PATCH" }),
-        path,
-      )
-    ).status,
-    404,
+    historic.id,
+    JSON.stringify([today, user.user_id, task.task_id]),
+  );
+  assert.throws(
+    () => adaptActivity({ ...activity, points: -1 }),
+    /invalid activity/,
   );
 });

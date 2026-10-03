@@ -21,7 +21,6 @@ import { completeTask } from "../lib/api/completions";
 import { adaptCommunity } from "../lib/api/postcodes";
 import {
   communityDecorations,
-  decorationAnimates,
   treeCount,
   houseSaturation,
 } from "../lib/map/decorations";
@@ -57,9 +56,6 @@ test("centroid-only API data builds a score-dependent frontend scene", async () 
     sceneAt(0).map((asset) => asset.type),
     ["house", "tree"],
   );
-  assert.equal(decorationAnimates("house", 39), false);
-  assert.equal(decorationAnimates("house", 40), true);
-  assert.equal(decorationAnimates("tree", 0), true);
   assert.equal(treeCount(-50), 1);
   assert.equal(treeCount(10), 1);
   assert.equal(treeCount(11), 2);

@@ -24,12 +24,10 @@ export async function getCompletionHistory(
   const [user, tasks, activities] = await Promise.all([
     getUser(userId),
     getTasks(),
-    getActivities(userId),
+    getActivities({ user_id: userId }),
   ]);
   return activities
-    .map((activity, index) =>
-      activityToCompletion(activity, user, tasks, index),
-    )
+    .map((activity) => activityToCompletion(activity, user, tasks))
     .sort((a, b) => b.completedAt.localeCompare(a.completedAt));
 }
 export async function completeTask(
@@ -49,7 +47,7 @@ export async function completeTask(
   const date = dayKey(new Date());
   const [task, activities] = await Promise.all([
     getTask(input.taskId),
-    getActivities(user.id, date),
+    getActivities({ user_id: user.id, date, task_id: input.taskId }),
   ]);
   if (
     activities.some(
@@ -57,10 +55,10 @@ export async function completeTask(
     )
   )
     throw new ApiError("You have already recorded this action today.", 409);
-  const activity = await createActivity(user.id, {
-    task_id: input.taskId,
-    date,
-  });
+  const activity = await createActivity(
+    { userId: user.id, taskId: input.taskId, date },
+    { points: task.points },
+  );
   return {
     completion: activityToCompletion(activity, user, [task]),
     // Activity points do not define the community Green Score.

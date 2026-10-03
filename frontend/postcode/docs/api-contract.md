@@ -10,81 +10,63 @@ API_BASE_URL includes /api/v1; browser requests use the same-origin /api/backend
 | --- | --- |
 | GET /coordinates/ | Map centroids and supported signup postcodes |
 | GET /coordinates/{postcode} | Selected postcode details/focus |
-| GET /tasks | Action catalogue, names/descriptions and points |
-| GET /tasks/{task_id} | Fresh details before recording an action |
-| GET /users | Email login lookup, duplicate-email precheck and leaderboard membership |
-| GET /users/{user_id} | Login details, restore saved user, account and activity history |
-| POST /users | Signup with exactly name, email, postcode |
-| PUT /users/{user_id}, DELETE /users/{user_id} | Typed services provided; account profile remains read-only |
-| GET /activities/{user_id} | Personal history; leaderboard point totals |
-| GET /activities/{user_id}?date=YYYY-MM-DD | Check whether an action has already been recorded today |
-| POST /activities/{user_id} | Record an action with exactly task_id and date; use returned points |
-| PUT /activities/{user_id} | Typed update service; edit UI awaits precise activity targeting semantics |
-| DELETE /activities/{user_id}?task_id=... | Typed delete service; always supplies task_id; no ambiguous delete-history UI |
+| GET /metrics/ | Join total_points to coordinate labels by normalized postcode; Green Score, house saturation and tree count |
+| GET /metrics/{postcode} | Electricity carbon intensity, air quality index and community leaderboard |
+| GET /tasks, GET /tasks/{task_id} | Action catalogue, fresh details and points before recording |
+| GET /users, GET /users/{user_id} | Email login, duplicate-email precheck, profile restoration and account details |
+| POST /users | Signup with exactly name, email and postcode |
+| PUT /users/{user_id}, DELETE /users/{user_id} | Typed services; account profile remains read-only |
+| GET /activities | Optional date, user_id and task_id filters; personal history and today's task eligibility |
+| POST /activities/{date}/{user_id}/{task_id} | Record one dated action with a points-only body |
+| PUT /activities/{date}/{user_id}/{task_id} | Typed service updates points on the precisely identified activity |
+| DELETE /activities/{date}/{user_id}/{task_id} | Typed service deletes the precisely identified activity |
 
-User IDs and postcode path segments are URL encoded (including user IDs that happen to be email addresses). Activity date/task_id filters are preserved by the proxy; unrelated query parameters are not forwarded.
+Activity writes no longer use /activities/{user_id}; the date/user/task triple identifies one occurrence. Writes encode each path segment separately, including user IDs that are emails. The list proxy forwards only the three documented filters. Update/delete services are integrated and tested; history remains read-only because this request updates the integration rather than adding editing controls.
+
+## Green Score and environmental values
+
+The metric list returns total_points rather than a normalized green_score or scale. The POC display rule is **one point = one Green Score point, capped at 100**. The full uncapped total appears separately under Community points. This is a frontend display convention, not a backend formula. Zero is a valid supplied score; a postcode absent from the list remains pending rather than silently acquiring zero. Map shading and selected-scene tree count/saturation use the displayed 0–100 score. Source animations remain independent of score and respect reduced motion.
+
+Coordinates and metrics load concurrently. Selected postcode details fetch the point, score list and postcode metric concurrently. Metric failures keep the map and task flow available, leave failed values unavailable, and show errors with retry. Supported signup postcodes depend only on coordinates.
+
+Postcode detail supplies carbon_intensity in gCO₂/kWh and air_quality on a documented 1–10 index. Carbon intensity zero is displayed as a real value; null/omitted environmental values display Unavailable. A live check returned air_quality=0, outside the documented range: the frontend treats that as unavailable. A later check returned a valid index of 3, which is displayed normally. Negative/invalid values fail visibly. No environmental score thresholds, trend, update timestamp or underlying data-source attribution are invented. Indicator badges show the returned values rather than claiming Doing well/Needs a little love without defined thresholds. Unrated API indicators do not drive fabricated recommendations or related-action totals.
 
 ## POC email-only login
 
-Login fetches GET /users, finds the entered email case-insensitively after trimming whitespace, then fetches GET /users/{user_id} for fresh profile details. It persists only the selected user ID in browser local storage under the existing key our-patch-development-profile for compatibility. Refresh uses that ID to fetch current details; sign-out clears it. A deleted user clears the selection. No password, token or session API is required for this POC. The former profile dropdown is removed.
+Login fetches GET /users, matches email case-insensitively after trimming whitespace, then GET /users/{user_id} for fresh details. Only the selected ID is persisted in local storage (our-patch-development-profile). Refresh fetches that user; sign-out clears the ID, and a deleted user clears the selection. Signup POSTs name, lowercase email and a supported postcode. Duplicate matches produce a visible error; backend case-insensitive uniqueness is still needed to prevent races. Password/token/session APIs are outside this POC's scope. Mock mode also uses email-only selection.
 
-Signup POSTs name, normalized lowercase email and a supported postcode. A duplicate email precheck helps avoid ambiguous login, but the backend should also enforce uniqueness. Multiple users matching the login email produce an explicit error rather than picking an arbitrary identity. Supported postcodes still come from the coordinate endpoint.
+## Activities, history and refresh
 
-Mock mode also uses email-only login/signup. Legacy browser database fields remain readable for compatibility, but passwords are no longer collected, hashed or checked. Mock mode's selected-user field contains only a user ID.
+The Activity schema requires task_id, user_id and date; points and postcode are optional. The UI reads the latest task points before POST, puts the London calendar date/user/task in the URL, and sends only {"points": task.points}. It displays returned activity points when present; missing points are not fabricated as zero. The server should determine or validate awards against the task catalogue, even though this POC accepts a points field.
 
-## Activity recording and history
+The frontend allows each task once per London day until task repeat metadata is supplied. It checks GET /activities?date=...&user_id=...&task_id=... before POST and disables already-recorded tasks. Backend uniqueness/idempotency must still protect against simultaneous tabs/retries. The composite date/user/task key provides stable display identity; duplicate list identities are rejected.
 
-The activity DTO is task_id, user_id, date (YYYY-MM-DD), points. Recording sends only task_id and date to POST /activities/{user_id}. No client points or proof are submitted. The resulting activity supplies authoritative awarded points.
+History joins tasks for titles and uses the activity's returned postcode for historical community attribution when present. If postcode is omitted it uses the current user's postcode; deleted tasks display Action {task_id}. The API supplies a day, not a timestamp; noon UTC is only a formatting placeholder. Activities are labelled Recorded because proof/approval status is absent. The local confirmation checkbox is self-report, not verification.
 
-Until task metadata defines repeat rules, the POC allows each action once per London calendar day. The UI disables already-recorded actions for today, and the service checks GET activities before POSTing. This is a POC convention; backend uniqueness/idempotency must enforce it across tabs/retries. Daily rules must be agreed rather than inferred from the date field alone.
+After recording, the app refetches community metrics, map totals, personal history and leaderboard. It does not optimistically overwrite the existing Green Score with an unavailable placeholder or add points to environmental measurements. A successful write remains recorded even if a later metrics read fails.
 
-Activities display as **recorded**, not approved: the schema has no approval/proof status. The confirmation checkbox is a local self-report, not backend proof verification. History joins activities with tasks for names, dates and points; a task missing from the current catalogue is shown as Action {task_id}. Activity dates use noon UTC internally only for date formatting across UK timezone changes; they are not actual event timestamps. Display keys are synthetic because the API does not provide activity IDs.
+## Community leaderboard
 
-Recording invalidates history and leaderboard queries. It does not fabricate a community score: coordinate labels remain neutral/pending, the selected postcode has one full-colour still house and one still tree, and environmental indicators/statistics stay unavailable. Activity points alone do not specify the community Green Score scale or calculation.
+GET /metrics/{postcode}.users now supplies member IDs, names and points directly. The popup always uses the signed-in user's home postcode, including when exploring another postcode. It sorts the returned totals descending and assigns competition ranks (1, 1, 3 for ties), retaining zero-point members and highlighting the current user by ID. Missing users means rankings are unavailable; an empty array is an available empty leaderboard; failures surface errors.
 
-## Live community leaderboard
+The old proposed /postcodes/{postcode}/leaderboard endpoint and per-member activity aggregation are removed. No dedicated leaderboard endpoint remains necessary for the existing feature. The metrics API does not specify the ranking period; the app does not label it monthly or claim historical attribution beyond the backend totals. Mock rankings continue to use saved approved demo actions.
 
-The prepared GET /postcodes/{postcode}/leaderboard is not in the supplied spec. On 404/501, the app now fetches GET /users, filters current members by postcode, and fetches their activities to sum real points. At most four member requests run concurrently. All member requests must succeed: a partial response is not shown as a complete ranking.
+## Remaining data/API gaps
 
-This provides a working leaderboard with the existing API, including the current user's highlighted row, zero-point members and competition ties (1, 1, 3). Scope is all recorded activities/all-time. Because activity records have no postcode, users are grouped by their **current** profile postcode; historic points follow a profile change. A dedicated aggregate response would be more efficient and could preserve historical community attribution.
-
-The existing optional dedicated response adapter accepts:
-```json
-{
-  "postcode": "EH9 1AB",
-  "entries": [
-    { "user_id": "member-1", "name": "Jamie", "rank": 1, "points": 12 },
-    { "user_id": "current-user-id", "name": "Alex", "rank": 2, "points": 8 }
-  ]
-}
-```
-If implemented, it is preferred automatically. Return all members including the current user, with stable user IDs, names, positive integer ranks and nonnegative integer points. Failed/invalid responses surface errors; there is no fake live data fallback. The sidebar button always opens the signed-in user's home postcode, even while exploring neighbours.
-
-## Pending APIs/data
-
-| Capability | Missing API/data |
+| Capability | Remaining contract/API work |
 | --- | --- |
-| Community Green Score | GET /postcodes/{postcode}/progress with score, scale/max, authoritative formula, caps/period, monthly change |
-| Scores across map labels | Scores keyed by postcode in the coordinate list or GET /postcodes/progress |
-| Environmental indicators | GET /postcodes/{postcode}/indicators with values/units, status, trends, sources, timestamps and provenance |
-| Community statistics | Backend-scoped totals/statistics, period and units; can share the progress endpoint |
-| Proof upload/verification | Text/photo/QR support, allowed types/sizes, storage and verification/review statuses; current ActivityInput has no proof fields |
-| Task rules/recommendations | Add category, effort/time, target indicator IDs, daily/one-off repeat policy and proof requirements to existing task responses |
-| Efficient authoritative leaderboard (optional) | GET /postcodes/{postcode}/leaderboard; current implementation already works via users + activities |
-| Precise activity editing/deletion | Stable activity_id or explicit (user, task, original date) identity and documented PUT/DELETE semantics |
+| Score semantics | Backend-defined score scale, conversion from total points, caps/period and monthly changes; current POC convention is explicit above |
+| More environmental detail | Additional indicators if desired; statuses/thresholds, trends, timestamps, coverage and underlying sources for existing values |
+| Community statistics | Actual action/member aggregates and reporting periods beyond the supplied total points |
+| Proof verification | Text/photo/QR support, uploads and review/verification status |
+| Task rules | Categories, effort/time, target indicator IDs, repeat policy and proof requirements in task responses |
+| Task feedback collection | Optional feedback POST if responses should be stored in-app; the configured external form already collects feedback, with a local downloadable form available as the default fallback |
+| Activity completeness | Consistently returned points/postcode, completion timestamps, title snapshots and documented uniqueness/idempotency |
 
-Authentication/session APIs are deliberately outside this POC scope, not a blocker or pending requirement.
+Precise activity targeting and API-backed community ranking are now supplied. Authentication/session APIs remain outside the requested POC scope.
 
-## Backend limitations to resolve
+## Browser access and validation
 
-1. Activity has no unique ID. DELETE is filtered only by task_id and PUT has no activity ID/original-date selector; it is unclear how either selects one occurrence when tasks recur on multiple dates. Services are connected, but edit/delete UI waits for that definition.
-2. Document/enforce the repeat policy and uniqueness of (user_id, task_id, date) or provide an idempotency key. A client GET-before-POST cannot prevent races across tabs/network retries.
-3. Activities lack proof/status, completion timestamps, task-title snapshots and postcode attribution. The app does not claim actions have been verified; historical names and community membership are inferred from current task/user data.
-4. Enforce case-insensitive email uniqueness and supported postcodes on POST/PUT users. Frontend prechecks improve UX but do not define server consistency.
-5. Define community scoring separately from individual activity points. The frontend leaves Green Score pending until this is supplied.
+The proxy forwards only documented Swagger resources/methods, adds ngrok-skip-browser-warning, disables caching and preserves upstream JSON status/errors. Old activity paths and the proposed leaderboard path are rejected. Non-JSON successes fail visibly; upstream error statuses are retained. NEXT_PUBLIC_API_BASE_URL optionally bypasses the proxy and requires browser CORS. NEXT_PUBLIC_USE_MOCK_API=true enables the browser-local demo; public env changes require a restart/rebuild.
 
-## Browser access and verification
-
-The proxy forwards only Swagger resources/methods plus the optional leaderboard GET, supplies ngrok-skip-browser-warning, disables response caching, and keeps upstream JSON status/errors. Framework HTML 404/501 from the optional leaderboard becomes JSON so activity aggregation can proceed. API and tunnel failures remain visible. NEXT_PUBLIC_API_BASE_URL optionally bypasses the proxy, requiring browser CORS. NEXT_PUBLIC_USE_MOCK_API=true enables the browser-local demo; public env changes need a restart/rebuild.
-
-Read-only live checks confirmed users/tasks/activity list responses on 3 October 2026. Live users and activities were not created, edited or deleted during testing. Unit/contract tests exercise CRUD payloads, date filtering, scoped identity, duplicate recording, email lookup and leaderboard aggregation; browser fixtures exercise POST recording and signup safely. The optional live browser smoke uses GETs only.
+Read-only live checks on 3 October 2026 confirmed GET metrics/list/detail, activities/filters and tasks. Live detail checks returned carbon_intensity=0, and air_quality values of 0 and later 3; carbon is displayed as returned, and invalid-range AQI is unavailable. A temporary non-JSON metrics failure was also observed; the UI exposes a retry state. No live users or activities were created, edited or deleted during verification. Fixtures test signup and recording safely; contract tests cover point-only writes, exact composite identity, filtering, metric validation, missing/zero values, ranking ties and graceful failures.

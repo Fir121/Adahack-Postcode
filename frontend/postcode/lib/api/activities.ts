@@ -2,7 +2,19 @@ import type { ActivityDto, ActivityInputDto } from "@/types/api";
 import type { Task, TaskCompletion, User } from "@/types/domain";
 import { apiRequest, ApiError } from "./client";
 import { endpoints } from "./endpoints";
-import { requireList } from "./adapters";
+import { communityId, requireList } from "./adapters";
+import { isPostcodeFormat, normalizePostcode } from "@/lib/utils";
+
+export interface ActivityFilters {
+  user_id?: string;
+  task_id?: string;
+  date?: string;
+}
+export interface ActivityKey {
+  userId: string;
+  taskId: string;
+  date: string;
+}
 
 export function validActivityDate(date: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
@@ -13,86 +25,112 @@ export function validActivityDate(date: string): boolean {
   );
 }
 function requireInput(input: ActivityInputDto): ActivityInputDto {
-  if (!input.task_id.trim() || !validActivityDate(input.date))
-    throw new ApiError("Choose a task and a valid activity date.", 400);
-  return { task_id: input.task_id, date: input.date };
+  if (
+    input.points !== undefined &&
+    (!Number.isSafeInteger(input.points) || input.points < 0)
+  )
+    throw new ApiError("Choose a valid number of activity points.", 400);
+  return input.points === undefined ? {} : { points: input.points };
 }
-export function adaptActivity(dto: ActivityDto, userId: string): ActivityDto {
+export function adaptActivity(
+  dto: ActivityDto,
+  filters: ActivityFilters = {},
+): ActivityDto {
   if (
     !dto ||
     typeof dto.user_id !== "string" ||
-    dto.user_id !== userId ||
+    !dto.user_id.trim() ||
+    (filters.user_id !== undefined && dto.user_id !== filters.user_id) ||
     typeof dto.task_id !== "string" ||
     !dto.task_id.trim() ||
     typeof dto.date !== "string" ||
     !validActivityDate(dto.date) ||
-    !Number.isSafeInteger(dto.points) ||
-    dto.points < 0
+    (filters.task_id !== undefined && dto.task_id !== filters.task_id) ||
+    (filters.date !== undefined && dto.date !== filters.date) ||
+    (dto.points !== undefined &&
+      (!Number.isSafeInteger(dto.points) || dto.points < 0)) ||
+    (dto.postcode !== undefined &&
+      (typeof dto.postcode !== "string" || !isPostcodeFormat(dto.postcode)))
   )
     throw new ApiError("The API returned invalid activity data.", 502);
-  return dto;
+  return {
+    ...dto,
+    postcode:
+      dto.postcode === undefined ? undefined : normalizePostcode(dto.postcode),
+  };
 }
 export async function getActivities(
-  userId: string,
-  date?: string,
+  filters: ActivityFilters = {},
 ): Promise<ActivityDto[]> {
-  if (!userId.trim()) throw new ApiError("Select a user first.", 400);
-  if (date !== undefined && !validActivityDate(date))
+  if (filters.user_id !== undefined && !filters.user_id.trim())
+    throw new ApiError("Select a user first.", 400);
+  if (filters.task_id !== undefined && !filters.task_id.trim())
+    throw new ApiError("Choose a task first.", 400);
+  if (filters.date !== undefined && !validActivityDate(filters.date))
     throw new ApiError("Choose a valid activity date.", 400);
-  const path =
-    endpoints.activities(userId) +
-    (date ? "?date=" + encodeURIComponent(date) : "");
-  return requireList(await apiRequest<ActivityDto[]>(path)).map((activity) =>
-    adaptActivity(activity, userId),
-  );
+  const query = new URLSearchParams();
+  for (const key of ["date", "user_id", "task_id"] as const)
+    if (filters[key] !== undefined) query.set(key, filters[key]);
+  const seen = new Set<string>();
+  return requireList(
+    await apiRequest<ActivityDto[]>(
+      endpoints.activities + (query.size ? "?" + query : ""),
+    ),
+  ).map((dto) => {
+    const activity = adaptActivity(dto, filters);
+    const key = JSON.stringify([
+      activity.date,
+      activity.user_id,
+      activity.task_id,
+    ]);
+    if (seen.has(key))
+      throw new ApiError("The API returned duplicate activity records.", 502);
+    seen.add(key);
+    return activity;
+  });
+}
+function activityPath(key: ActivityKey): string {
+  if (!key.userId.trim() || !key.taskId.trim() || !validActivityDate(key.date))
+    throw new ApiError("Choose a user, task and valid activity date.", 400);
+  return endpoints.activity(key.date, key.userId, key.taskId);
 }
 async function writeActivity(
-  userId: string,
+  key: ActivityKey,
   input: ActivityInputDto,
   method: "POST" | "PUT",
 ) {
-  if (!userId.trim()) throw new ApiError("Select a user first.", 400);
+  const path = activityPath(key);
   const payload = requireInput(input);
   const activity = adaptActivity(
-    await apiRequest<ActivityDto>(endpoints.activities(userId), {
+    await apiRequest<ActivityDto>(path, {
       method,
       body: JSON.stringify(payload),
     }),
-    userId,
+    { user_id: key.userId, task_id: key.taskId, date: key.date },
   );
-  if (activity.task_id !== payload.task_id || activity.date !== payload.date)
-    throw new ApiError(
-      "The activity response did not match the submitted action.",
-      502,
-    );
   return activity;
 }
-export const createActivity = (userId: string, input: ActivityInputDto) =>
-  writeActivity(userId, input, "POST");
-export const updateActivity = (userId: string, input: ActivityInputDto) =>
-  writeActivity(userId, input, "PUT");
-export async function deleteActivity(
-  userId: string,
-  taskId: string,
-): Promise<void> {
-  if (!userId.trim() || !taskId.trim())
-    throw new ApiError("Choose a user and task to remove.", 400);
-  return apiRequest<void>(
-    endpoints.activities(userId) + "?task_id=" + encodeURIComponent(taskId),
-    { method: "DELETE" },
-  );
+export const createActivity = (
+  key: ActivityKey,
+  input: ActivityInputDto = {},
+) => writeActivity(key, input, "POST");
+export const updateActivity = (key: ActivityKey, input: ActivityInputDto) =>
+  writeActivity(key, input, "PUT");
+export async function deleteActivity(key: ActivityKey): Promise<void> {
+  return apiRequest<void>(activityPath(key), { method: "DELETE" });
 }
 export function activityToCompletion(
   activity: ActivityDto,
   user: User,
   tasks: Task[],
-  index = 0,
 ): TaskCompletion {
   const task = tasks.find((item) => item.id === activity.task_id);
   return {
-    id: [activity.user_id, activity.task_id, activity.date, index].join(":"),
+    id: JSON.stringify([activity.date, activity.user_id, activity.task_id]),
     userId: activity.user_id,
-    communityId: user.communityId,
+    communityId: activity.postcode
+      ? communityId(activity.postcode)
+      : user.communityId,
     taskId: activity.task_id,
     taskTitle: task?.title ?? "Action " + activity.task_id,
     category: task?.category ?? "Community action",

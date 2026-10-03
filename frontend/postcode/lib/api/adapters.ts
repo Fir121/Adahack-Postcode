@@ -69,7 +69,7 @@ export function adaptUser(dto: UserDto): User {
 }
 export function adaptTask(dto: TaskDto): Task {
   requireFields(dto, ["task_id", "name", "description"]);
-  if (!Number.isInteger(dto.points) || dto.points < 0)
+  if (!Number.isSafeInteger(dto.points) || dto.points < 0)
     throw new ApiError("The API returned invalid task points.", 502);
   return {
     id: dto.task_id,

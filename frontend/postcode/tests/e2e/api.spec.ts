@@ -20,13 +20,17 @@ const task = {
   description: "Walk or cycle one journey.",
   points: 1,
 };
-async function fixtures(page: Page, options: { registered?: boolean } = {}) {
+async function fixtures(
+  page: Page,
+  options: { registered?: boolean; emptyMetrics?: boolean } = {},
+) {
   let registered = options.registered ?? true;
   const records: {
     user_id: string;
     task_id: string;
     date: string;
     points: number;
+    postcode?: string;
   }[] = [];
   const activityWrites: unknown[] = [];
   const paths: string[] = [];
@@ -43,19 +47,58 @@ async function fixtures(page: Page, options: { registered?: boolean } = {}) {
     if (path.startsWith("/activities/")) {
       if (request.method() === "POST") {
         const input = request.postDataJSON();
-        activityWrites.push(input);
+        activityWrites.push({ path, body: input });
+        const [, , date, user_id, task_id] = path.split("/");
         const record = {
           ...input,
-          user_id: profile.user_id,
-          points: task.points,
+          date,
+          user_id,
+          task_id,
+          postcode: profile.postcode,
         };
         records.push(record);
         return route.fulfill({ status: 201, json: record });
       }
-      const date = new URL(request.url()).searchParams.get("date");
+      return route.fulfill({
+        status: 404,
+        json: { message: "Legacy activity path" },
+      });
+    }
+    if (path === "/activities") {
+      const query = new URL(request.url()).searchParams;
       return route.fulfill({
         status: 200,
-        json: date ? records.filter((record) => record.date === date) : records,
+        json: records.filter((record) =>
+          ["date", "user_id", "task_id"].every(
+            (key) =>
+              !query.has(key) ||
+              record[key as "date" | "user_id" | "task_id"] === query.get(key),
+          ),
+        ),
+      });
+    }
+    const points = records.reduce((sum, record) => sum + record.points, 0);
+    if (path === "/metrics")
+      return route.fulfill({
+        json: options.emptyMetrics
+          ? []
+          : [
+              { postcode: profile.postcode, total_points: 10 + points },
+              { postcode: "EH9 1AD", total_points: 80 },
+            ],
+      });
+    if (path.startsWith("/metrics/")) {
+      const postcode = path.slice("/metrics/".length);
+      return route.fulfill({
+        json: {
+          postcode,
+          carbon_intensity: postcode === profile.postcode ? 42.25 : 200,
+          air_quality: postcode === profile.postcode ? 3 : null,
+          users:
+            postcode === profile.postcode
+              ? [{ user_id: profile.user_id, name: profile.name, points }]
+              : [],
+        },
       });
     }
     if (request.method() === "POST") {
@@ -88,7 +131,7 @@ async function fixtures(page: Page, options: { registered?: boolean } = {}) {
   });
   return { paths, writes, activityWrites, records };
 }
-test("live-shaped data drives profiles, centroids, tasks and honest unavailable states", async ({
+test("live-shaped metrics drive postcode scores, indicators, centroids and tasks", async ({
   page,
 }) => {
   const { paths } = await fixtures(page);
@@ -97,14 +140,19 @@ test("live-shaped data drives profiles, centroids, tasks and honest unavailable 
   await page.getByLabel("Email address").fill(profile.email);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page.locator(".sidebar-identity h2")).toHaveText("EH9 1AB");
-  await expect(
-    page.getByText("Green Score pending", { exact: true }).first(),
-  ).toBeVisible();
-  await expect(page.locator(".score-ring")).toHaveCount(0);
+  await expect(page.locator(".score-ring strong")).toHaveText("10");
   await expect(page.locator(".map-postcode-label")).toHaveCount(2);
   await expect(page.locator(".map-postcode-label.selected")).toContainText(
-    "Pending",
+    "10",
   );
+  await expect(
+    page
+      .locator(".indicator-row")
+      .filter({ hasText: "Electricity carbon intensity" }),
+  ).toContainText("42.25 gCO₂/kWh");
+  await expect(
+    page.locator(".indicator-row").filter({ hasText: "Air quality" }),
+  ).toContainText("3 / 10");
   await expect(
     page.locator('.map-decoration[data-asset-type="house"]'),
   ).toHaveCount(1);
@@ -126,6 +174,10 @@ test("live-shaped data drives profiles, centroids, tasks and honest unavailable 
   await expect(dialog).not.toBeVisible();
   await page.getByLabel("Explore a postcode").selectOption("eh9-1ad");
   await expect(page.locator(".sidebar-identity h2")).toHaveText("EH9 1AD");
+  await expect(page.locator(".score-ring strong")).toHaveText("80");
+  await expect(
+    page.locator('.map-decoration[data-asset-type="tree"]'),
+  ).toHaveCount(8);
   await page.reload();
   await expect(page.locator(".sidebar-identity h2")).toHaveText("EH9 1AB");
   await page.goto("/account");
@@ -216,7 +268,7 @@ test("the supplied PNG is used for the logo, favicon, touch icon and app manifes
   const icon = await page.request.get(favicon!);
   expect(await logo.body()).toEqual(await icon.body());
 });
-test("real server smoke: email login, activity history and derived leaderboard", async ({
+test("real server smoke: email login, metrics, activity history and community rankings", async ({
   page,
 }) => {
   test.skip(
@@ -232,10 +284,19 @@ test("real server smoke: email login, activity history and derived leaderboard",
   await page.getByLabel("Email address").fill(users[0].email);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page.locator(".sidebar-identity h2")).toBeVisible();
+  const scores = await (await page.request.get("/api/backend/metrics/")).json();
+  const score = scores.find(
+    (metric: { postcode: string; total_points: number }) =>
+      metric.postcode === users[0].postcode,
+  );
+  if (score)
+    await expect(page.locator(".score-ring strong")).toHaveText(
+      String(Math.min(100, score.total_points)),
+    );
   await page.getByRole("button", { name: "My community leaderboard" }).click();
   await expect(
     page.getByRole("dialog").locator(".leaderboard-current-user"),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 30_000 });
   await page.keyboard.press("Escape");
   await page.goto("/account");
   await expect(
@@ -243,7 +304,7 @@ test("real server smoke: email login, activity history and derived leaderboard",
   ).toBeVisible();
   const activities = await (
     await page.request.get(
-      "/api/backend/activities/" + encodeURIComponent(users[0].user_id),
+      "/api/backend/activities?user_id=" + encodeURIComponent(users[0].user_id),
     )
   ).json();
   if (activities.length)
@@ -253,16 +314,83 @@ test("real server smoke: email login, activity history and derived leaderboard",
   else await expect(page.locator(".empty-history")).toBeVisible();
   await expect(page.locator(".account-page [role=alert]")).toHaveCount(0);
 });
+
+test("metrics failures keep map and actions usable, show errors, and recover on retry", async ({
+  page,
+}) => {
+  await fixtures(page);
+  let offline = true;
+  await page.route("**/api/backend/metrics/**", (route) =>
+    offline
+      ? route.fulfill({
+          status: 503,
+          json: { message: "Metrics temporarily offline." },
+        })
+      : route.fallback(),
+  );
+  await page.goto("/login");
+  await page.getByLabel("Email address").fill(profile.email);
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(page.locator(".map-postcode-label")).toHaveCount(2);
+  await expect(
+    page
+      .locator(".sidebar-content")
+      .getByRole("alert")
+      .filter({ hasText: "Green Scores couldn't load" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Take this action" }),
+  ).toBeEnabled();
+  offline = false;
+  await page
+    .locator(".sidebar-content")
+    .getByRole("button", { name: "Try again", exact: true })
+    .click();
+  await expect(page.locator(".score-ring strong")).toHaveText("10");
+  await expect(page.locator(".sidebar-content [role=alert]")).toHaveCount(0);
+  await expect(
+    page.locator(".indicator-row").filter({ hasText: "Air quality" }),
+  ).toContainText("3 / 10");
+});
+
+test("postcode environmental values handle zero carbon and unavailable air index without false activity totals", async ({
+  page,
+}) => {
+  await fixtures(page);
+  await page.route("**/api/backend/metrics/EH9%201AB", (route) =>
+    route.fulfill({
+      json: {
+        postcode: profile.postcode,
+        carbon_intensity: 0,
+        air_quality: 0,
+        users: [],
+      },
+    }),
+  );
+  await page.goto("/login");
+  await page.getByLabel("Email address").fill(profile.email);
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(
+    page.locator(".indicator-row").filter({ hasText: "Air quality" }),
+  ).toContainText("Unavailable");
+  await page
+    .getByRole("button", { name: /Electricity carbon intensity/ })
+    .click();
+  await expect(page.locator(".measurement-card strong")).toHaveText(
+    "0 gCO₂/kWh",
+  );
+  await expect(page.locator(".activity-card")).toHaveCount(0);
+});
 test("leaderboard loads on demand for home postcode, highlights identity, refreshes and restores focus", async ({
   page,
 }) => {
   await fixtures(page);
   let payload = {
     postcode: "EH9 1AB",
-    entries: [
-      { user_id: "third", name: "Casey", rank: 3, points: 3 },
-      { user_id: profile.user_id, name: profile.name, rank: 2, points: 8 },
-      { user_id: "first", name: profile.name, rank: 1, points: 12 },
+    users: [
+      { user_id: "third", name: "Casey", points: 3 },
+      { user_id: profile.user_id, name: profile.name, points: 8 },
+      { user_id: "first", name: profile.name, points: 12 },
     ],
   };
   const requests: string[] = [];
@@ -270,16 +398,16 @@ test("leaderboard loads on demand for home postcode, highlights identity, refres
   const waitForResponse = new Promise<void>((resolve) => {
     release = resolve;
   });
-  await page.route("**/api/backend/postcodes/**/leaderboard", async (route) => {
-    requests.push(decodeURIComponent(new URL(route.request().url()).pathname));
-    await waitForResponse;
-    await route.fulfill({ status: 200, json: payload });
-  });
   await page.goto("/login");
   await page.getByLabel("Email address").fill(profile.email);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await page.getByLabel("Explore a postcode").selectOption("eh9-1ad");
   await expect(page.locator(".sidebar-identity h2")).toHaveText("EH9 1AD");
+  await page.route("**/api/backend/metrics/EH9%201AB", async (route) => {
+    requests.push(decodeURIComponent(new URL(route.request().url()).pathname));
+    await waitForResponse;
+    await route.fulfill({ status: 200, json: payload });
+  });
   const trigger = page.getByRole("button", {
     name: "My community leaderboard",
   });
@@ -311,7 +439,7 @@ test("leaderboard loads on demand for home postcode, highlights identity, refres
   await expect(trigger).toBeFocused();
   payload = {
     ...payload,
-    entries: payload.entries.map((entry) =>
+    users: payload.users.map((entry) =>
       entry.user_id === profile.user_id ? { ...entry, points: 9 } : entry,
     ),
   };
@@ -321,7 +449,7 @@ test("leaderboard loads on demand for home postcode, highlights identity, refres
   ).toHaveText("9");
   payload = {
     ...payload,
-    entries: payload.entries.map((entry) =>
+    users: payload.users.map((entry) =>
       entry.user_id === profile.user_id ? { ...entry, points: 10 } : entry,
     ),
   };
@@ -331,9 +459,7 @@ test("leaderboard loads on demand for home postcode, highlights identity, refres
   ).toHaveText("10");
   expect(requests).toHaveLength(3);
   expect(
-    requests.every(
-      (path) => path === "/api/backend/postcodes/EH9 1AB/leaderboard",
-    ),
+    requests.every((path) => path === "/api/backend/metrics/EH9 1AB"),
   ).toBe(true);
   await page.screenshot({
     path: test.info().outputPath("leaderboard-desktop.png"),
@@ -345,11 +471,15 @@ test("leaderboard handles pending endpoint, empty result, errors and a missing c
 }) => {
   await fixtures(page);
   let state = "missing";
-  await page.route("**/api/backend/postcodes/**/leaderboard", (route) => {
+  await page.route("**/api/backend/metrics/EH9%201AB", (route) => {
     if (state === "missing")
       return route.fulfill({
-        status: 404,
-        json: { message: "Not implemented" },
+        status: 200,
+        json: {
+          postcode: profile.postcode,
+          carbon_intensity: null,
+          air_quality: null,
+        },
       });
     if (state === "error")
       return route.fulfill({
@@ -360,10 +490,10 @@ test("leaderboard handles pending endpoint, empty result, errors and a missing c
       status: 200,
       json: {
         postcode: "EH9 1AB",
-        entries:
+        users:
           state === "empty"
             ? []
-            : [{ user_id: "another", name: "Jamie", rank: 1, points: 0 }],
+            : [{ user_id: "another", name: "Jamie", points: 0 }],
       },
     });
   });
@@ -372,12 +502,8 @@ test("leaderboard handles pending endpoint, empty result, errors and a missing c
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await page.getByRole("button", { name: "My community leaderboard" }).click();
   const dialog = page.getByRole("dialog");
-  await expect(dialog.getByRole("table")).toBeVisible();
   await expect(
-    dialog.locator(".leaderboard-current-user td").last(),
-  ).toHaveText("0");
-  await expect(
-    dialog.getByText(/Points come from recorded activities/),
+    dialog.getByRole("heading", { name: "Leaderboard coming soon" }),
   ).toBeVisible();
   state = "empty";
   await dialog.getByRole("button", { name: "Refresh rankings" }).click();
@@ -403,22 +529,18 @@ test("leaderboard popup fits the mobile drawer and retains a readable table", as
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await fixtures(page);
-  await page.route("**/api/backend/postcodes/**/leaderboard", (route) =>
+  await page.route("**/api/backend/metrics/EH9%201AB", (route) =>
     route.fulfill({
       json: {
         postcode: "EH9 1AB",
-        entries: [
-          { user_id: profile.user_id, name: profile.name, rank: 1, points: 0 },
-        ],
+        users: [{ user_id: profile.user_id, name: profile.name, points: 0 }],
       },
     }),
   );
   await page.goto("/login");
   await page.getByLabel("Email address").fill(profile.email);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await page
-    .getByRole("button", { name: /EH9 1AB · Green Score pending/ })
-    .click();
+  await page.getByRole("button", { name: /EH9 1AB · Green Score 10/ }).click();
   await page.getByRole("button", { name: "My community leaderboard" }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByRole("table")).toBeVisible();
@@ -437,7 +559,7 @@ test("leaderboard popup fits the mobile drawer and retains a readable table", as
   await expect(dialog).not.toBeVisible();
 });
 
-test("recording an action posts Swagger input, updates history/leaderboard and preserves pending Green Score", async ({
+test("recording targets the dated activity and refreshes metrics, history, leaderboard and scene", async ({
   page,
 }) => {
   const { activityWrites } = await fixtures(page);
@@ -452,14 +574,21 @@ test("recording an action posts Swagger input, updates history/leaderboard and p
     dialog.getByRole("heading", { name: "Action recorded." }),
   ).toBeVisible();
   expect(activityWrites).toEqual([
-    { task_id: task.task_id, date: dayKey(new Date()) },
+    {
+      path: `/activities/${dayKey(new Date())}/${profile.user_id}/${task.task_id}`,
+      body: { points: task.points },
+    },
   ]);
   await dialog
     .getByRole("button", { name: "Back to my neighbourhood" })
     .click();
+  await expect(page.locator(".score-ring strong")).toHaveText("11");
   await expect(
-    page.getByText("Green Score pending", { exact: true }).first(),
-  ).toBeVisible();
+    page.locator('.map-decoration[data-asset-type="tree"]'),
+  ).toHaveCount(2);
+  await expect(
+    page.locator('.map-decoration[data-asset-type="house"] .map-sprite'),
+  ).toHaveCSS("filter", /saturate\(0\.11\)/);
   await page.getByRole("button", { name: "My community leaderboard" }).click();
   await expect(
     page.getByRole("dialog").locator(".leaderboard-current-user td").last(),
@@ -495,4 +624,154 @@ test("email login rejects unknown emails and signup redirects duplicate emails t
   await expect(
     page.getByRole("alert").filter({ hasText: "Sign in instead" }),
   ).toBeVisible();
+});
+
+test("map sprites advance without a Green Score and respond to reduced motion and postcode selection", async ({
+  page,
+}) => {
+  await fixtures(page, { emptyMetrics: true });
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.goto("/login");
+  await page.getByLabel("Email address").fill(profile.email);
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(page.locator(".map-postcode-label.selected")).toContainText(
+    "Pending",
+  );
+  const house = page.locator(
+    '.map-decoration[data-asset-type="house"] .map-sprite',
+  );
+  const tree = page.locator(
+    '.map-decoration[data-asset-type="tree"] .map-sprite',
+  );
+  async function checkPlayback() {
+    for (const sprite of [house, tree]) {
+      await expect(sprite).toBeVisible();
+      await expect
+        .poll(() =>
+          sprite.evaluate(
+            (element) =>
+              element
+                .getAnimations()
+                .find((animation) => animation.id === "sprite-timeline")
+                ?.playState,
+          ),
+        )
+        .toBe("running");
+      const initial = await sprite.evaluate(
+        (element) => getComputedStyle(element).backgroundPosition,
+      );
+      await expect
+        .poll(() =>
+          sprite.evaluate(
+            (element) => getComputedStyle(element).backgroundPosition,
+          ),
+        )
+        .not.toBe(initial);
+    }
+  }
+  await checkPlayback();
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  for (const sprite of [house, tree]) {
+    await expect
+      .poll(() => sprite.evaluate((element) => element.getAnimations().length))
+      .toBe(0);
+    await expect(sprite).toHaveCSS("background-position", "0px 0px");
+  }
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await checkPlayback();
+  await page.getByLabel("Explore a postcode").selectOption("eh9-1ad");
+  await expect(page.locator(".map-postcode-label.selected")).toContainText(
+    "EH9 1AD",
+  );
+  await expect(page.locator(".map-decoration")).toHaveCount(2);
+  await checkPlayback();
+});
+
+test("task feedback stays independent of task completion and saves an honest local downloadable receipt", async ({
+  page,
+}) => {
+  const { records } = await fixtures(page);
+  records.push({
+    user_id: profile.user_id,
+    task_id: task.task_id,
+    date: dayKey(new Date()),
+    points: 1,
+  });
+  await page.goto("/login");
+  await page.getByLabel("Email address").fill(profile.email);
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await page.getByRole("button", { name: "Explore all actions" }).click();
+  const card = page.locator(".action-card-shell");
+  await expect(card.locator(".action-card")).toBeDisabled();
+  const feedback = card.getByRole("link", {
+    name: "Give feedback on this task",
+  });
+  await expect(feedback).toHaveAttribute("title", "Give feedback on this task");
+  await expect(feedback).toHaveCSS("border-radius", "50%");
+  await feedback.hover();
+  await expect(feedback.locator(".task-feedback-tooltip")).toBeVisible();
+  const feedbackHref = await feedback.getAttribute("href");
+  if (feedbackHref && !feedbackHref.startsWith("/")) {
+    // Respect a configured external form, while keeping this check independent of that service.
+    const external = new URL(feedbackHref);
+    await page.route(
+      (url) =>
+        url.origin === external.origin && url.pathname === external.pathname,
+      (route) =>
+        route.fulfill({
+          contentType: "text/html",
+          body: "<p>Task feedback form</p>",
+        }),
+    );
+    await feedback.click();
+    await expect(page).toHaveURL(feedbackHref);
+    await page.goto("/feedback?task_id=1");
+  } else {
+    await feedback.click();
+  }
+  await expect(page).toHaveURL("/feedback?task_id=1");
+  await expect(
+    page.getByRole("heading", { name: "Short Hop", exact: true }),
+  ).toBeVisible();
+  await page
+    .getByLabel("How did you find this task?")
+    .selectOption("needs-improvement");
+  await page
+    .getByLabel("Your feedback", { exact: true })
+    .fill("Please include an accessible route suggestion.");
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(
+    await page
+      .locator(".feedback-page")
+      .evaluate((element) => element.scrollWidth <= element.clientWidth),
+  ).toBe(true);
+  await page.getByRole("button", { name: "Save feedback" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Feedback saved." }),
+  ).toBeVisible();
+  await expect(page.getByRole("status")).toContainText("saved on this device");
+  const saved = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem("our-patch-task-feedback-v1")!),
+  );
+  expect(saved).toMatchObject([
+    {
+      taskId: "1",
+      taskTitle: "Short Hop",
+      userId: profile.user_id,
+      rating: "needs-improvement",
+      message: "Please include an accessible route suggestion.",
+    },
+  ]);
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download feedback" }).click();
+  expect((await download).suggestedFilename()).toBe(
+    "our-patch-task-feedback.json",
+  );
+  await page.reload();
+  expect(
+    await page.evaluate(
+      () =>
+        JSON.parse(localStorage.getItem("our-patch-task-feedback-v1")!).length,
+    ),
+  ).toBe(1);
 });

@@ -1,35 +1,33 @@
-import { isPostcodeFormat } from "@/lib/utils";
+import { validActivityDate } from "./activities";
 
-// Swagger resources plus the proposed read-only leaderboard route; never an arbitrary URL.
+// Forward only documented Swagger resources and methods, never an arbitrary URL.
 export async function proxyApiRequest(
   request: Request,
   segments: string[],
 ): Promise<Response> {
   const [resource, id] = segments;
   const read = request.method === "GET";
-  const leaderboard =
-    read &&
-    segments.length === 3 &&
-    resource === "postcodes" &&
-    isPostcodeFormat(id ?? "") &&
-    segments[2] === "leaderboard";
-  const activities =
+  const validSegments = segments.every(
+    (part) => part && part !== "." && part !== "..",
+  );
+  const activityList =
+    resource === "activities" && segments.length === 1 && read;
+  const activityWrite =
     resource === "activities" &&
-    segments.length === 2 &&
-    Boolean(id) &&
-    ![".", ".."].includes(id) &&
-    ["GET", "POST", "PUT", "DELETE"].includes(request.method);
+    segments.length === 4 &&
+    validActivityDate(id ?? "") &&
+    ["POST", "PUT", "DELETE"].includes(request.method);
   const allowed =
-    activities ||
-    leaderboard ||
-    (segments.length <= 2 &&
-      segments.length >= 1 &&
-      segments.every((part) => part && part !== "." && part !== "..") &&
-      ((["coordinates", "tasks"].includes(resource) && read) ||
-        (resource === "users" &&
-          (read ||
-            (!id && request.method === "POST") ||
-            (Boolean(id) && ["PUT", "DELETE"].includes(request.method))))));
+    validSegments &&
+    (activityList ||
+      activityWrite ||
+      (segments.length <= 2 &&
+        segments.length >= 1 &&
+        ((["coordinates", "tasks", "metrics"].includes(resource) && read) ||
+          (resource === "users" &&
+            (read ||
+              (!id && request.method === "POST") ||
+              (Boolean(id) && ["PUT", "DELETE"].includes(request.method)))))));
   if (!allowed)
     return Response.json(
       { message: "This API route is not available." },
@@ -41,15 +39,14 @@ export async function proxyApiRequest(
   ).replace(/\/$/, "");
   const path =
     segments.map(encodeURIComponent).join("/") +
-    (resource === "coordinates" && !id ? "/" : "");
+    (["coordinates", "metrics"].includes(resource) && !id ? "/" : "");
   try {
     const query = new URLSearchParams();
     const incoming = new URL(request.url).searchParams;
-    const filter =
-      activities &&
-      (read ? "date" : request.method === "DELETE" ? "task_id" : undefined);
-    if (filter && incoming.has(filter))
-      query.set(filter, incoming.get(filter)!);
+    if (activityList)
+      for (const filter of ["date", "user_id", "task_id"]) {
+        if (incoming.has(filter)) query.set(filter, incoming.get(filter)!);
+      }
     const response = await fetch(
       upstream + "/" + path + (query.size ? "?" + query.toString() : ""),
       {
@@ -70,12 +67,6 @@ export async function proxyApiRequest(
       },
     );
     const body = await response.text();
-    // Frameworks often return an HTML 404 for routes still under development.
-    if (leaderboard && [404, 501].includes(response.status))
-      return Response.json(
-        { message: "Community leaderboard is not available yet." },
-        { status: response.status },
-      );
     if (
       body &&
       !response.headers.get("content-type")?.includes("application/json")
@@ -85,7 +76,7 @@ export async function proxyApiRequest(
           message:
             "The development API returned a non-JSON response. Check that the server and tunnel are running.",
         },
-        { status: 502 },
+        { status: response.status >= 400 ? response.status : 502 },
       );
     return new Response(body || null, {
       status: response.status,

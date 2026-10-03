@@ -2,16 +2,109 @@
     "swagger": "2.0",
     "basePath": "/api/v1",
     "paths": {
-        "/activities/{user_id}": {
+        "/activities": {
+            "get": {
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Activity"
+                            }
+                        }
+                    }
+                },
+                "summary": "Get activities with optional filters",
+                "operationId": "get_activities_list_resource",
+                "parameters": [
+                    {
+                        "description": "Filter activities by date (YYYY-MM-DD)",
+                        "name": "date",
+                        "type": "string",
+                        "in": "query"
+                    },
+                    {
+                        "description": "Filter activities by user ID",
+                        "name": "user_id",
+                        "type": "string",
+                        "in": "query"
+                    },
+                    {
+                        "description": "Filter activities by task ID",
+                        "name": "task_id",
+                        "type": "string",
+                        "in": "query"
+                    },
+                    {
+                        "name": "X-Fields",
+                        "in": "header",
+                        "type": "string",
+                        "format": "mask",
+                        "description": "An optional fields mask"
+                    }
+                ],
+                "tags": [
+                    "activities"
+                ]
+            }
+        },
+        "/activities/{date}/{user_id}/{task_id}": {
             "parameters": [
+                {
+                    "in": "path",
+                    "description": "The task identifier",
+                    "name": "task_id",
+                    "required": true,
+                    "type": "string"
+                },
                 {
                     "in": "path",
                     "description": "The user identifier",
                     "name": "user_id",
                     "required": true,
                     "type": "string"
+                },
+                {
+                    "in": "path",
+                    "description": "Date of the activity (YYYY-MM-DD)",
+                    "name": "date",
+                    "required": true,
+                    "type": "string"
                 }
             ],
+            "put": {
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "schema": {
+                            "$ref": "#/definitions/Activity"
+                        }
+                    }
+                },
+                "summary": "Update an activity",
+                "operationId": "put_activity_resource",
+                "parameters": [
+                    {
+                        "name": "payload",
+                        "required": true,
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/ActivityInput"
+                        }
+                    },
+                    {
+                        "name": "X-Fields",
+                        "in": "header",
+                        "type": "string",
+                        "format": "mask",
+                        "description": "An optional fields mask"
+                    }
+                ],
+                "tags": [
+                    "activities"
+                ]
+            },
             "post": {
                 "responses": {
                     "201": {
@@ -21,8 +114,8 @@
                         }
                     }
                 },
-                "summary": "Record an activity for a user",
-                "operationId": "post_user_activities_resource",
+                "summary": "Record an activity",
+                "operationId": "post_activity_resource",
                 "parameters": [
                     {
                         "name": "payload",
@@ -50,81 +143,8 @@
                         "description": "Success"
                     }
                 },
-                "summary": "Delete an activity for a user",
-                "operationId": "deleteUserActivity",
-                "parameters": [
-                    {
-                        "in": "query",
-                        "description": "Task ID of the activity to delete",
-                        "name": "task_id",
-                        "type": "string"
-                    }
-                ],
-                "tags": [
-                    "activities"
-                ]
-            },
-            "get": {
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/Activity"
-                            }
-                        }
-                    }
-                },
-                "summary": "Get activities for a user",
-                "operationId": "get_user_activities_resource",
-                "parameters": [
-                    {
-                        "in": "query",
-                        "description": "Filter activities by date (YYYY-MM-DD)",
-                        "name": "date",
-                        "type": "string"
-                    },
-                    {
-                        "name": "X-Fields",
-                        "in": "header",
-                        "type": "string",
-                        "format": "mask",
-                        "description": "An optional fields mask"
-                    }
-                ],
-                "tags": [
-                    "activities"
-                ]
-            },
-            "put": {
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "schema": {
-                            "$ref": "#/definitions/Activity"
-                        }
-                    }
-                },
-                "summary": "Update an activity for a user",
-                "operationId": "put_user_activities_resource",
-                "parameters": [
-                    {
-                        "name": "payload",
-                        "required": true,
-                        "in": "body",
-                        "schema": {
-                            "$ref": "#/definitions/ActivityInput"
-                        }
-                    },
-                    {
-                        "name": "X-Fields",
-                        "in": "header",
-                        "type": "string",
-                        "format": "mask",
-                        "description": "An optional fields mask"
-                    }
-                ],
+                "summary": "Delete an activity",
+                "operationId": "delete_activity_resource",
                 "tags": [
                     "activities"
                 ]
@@ -203,6 +223,70 @@
                 ],
                 "tags": [
                     "coordinates"
+                ]
+            }
+        },
+        "/metrics/": {
+            "get": {
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/PostcodeMetric"
+                            }
+                        }
+                    }
+                },
+                "summary": "Get total points for each postcode",
+                "operationId": "get_postcode_metrics_resource",
+                "parameters": [
+                    {
+                        "name": "X-Fields",
+                        "in": "header",
+                        "type": "string",
+                        "format": "mask",
+                        "description": "An optional fields mask"
+                    }
+                ],
+                "tags": [
+                    "metrics"
+                ]
+            }
+        },
+        "/metrics/{postcode}": {
+            "parameters": [
+                {
+                    "in": "path",
+                    "description": "Postcode to get user points for (e.g. EH1 1YZ)",
+                    "name": "postcode",
+                    "required": true,
+                    "type": "string"
+                }
+            ],
+            "get": {
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "schema": {
+                            "$ref": "#/definitions/PostcodeDetailMetric"
+                        }
+                    }
+                },
+                "summary": "Get metrics for a postcode",
+                "operationId": "get_postcode_detail_metrics_resource",
+                "parameters": [
+                    {
+                        "name": "X-Fields",
+                        "in": "header",
+                        "type": "string",
+                        "format": "mask",
+                        "description": "An optional fields mask"
+                    }
+                ],
+                "tags": [
+                    "metrics"
                 ]
             }
         },
@@ -341,42 +425,6 @@
                     "type": "string"
                 }
             ],
-            "delete": {
-                "responses": {
-                    "200": {
-                        "description": "Success"
-                    }
-                },
-                "summary": "Delete a user",
-                "operationId": "delete_user_resource",
-                "tags": [
-                    "users"
-                ]
-            },
-            "get": {
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "schema": {
-                            "$ref": "#/definitions/User"
-                        }
-                    }
-                },
-                "summary": "Get a single user",
-                "operationId": "get_user_resource",
-                "parameters": [
-                    {
-                        "name": "X-Fields",
-                        "in": "header",
-                        "type": "string",
-                        "format": "mask",
-                        "description": "An optional fields mask"
-                    }
-                ],
-                "tags": [
-                    "users"
-                ]
-            },
             "put": {
                 "responses": {
                     "200": {
@@ -405,6 +453,42 @@
                         "description": "An optional fields mask"
                     }
                 ],
+                "tags": [
+                    "users"
+                ]
+            },
+            "get": {
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "schema": {
+                            "$ref": "#/definitions/User"
+                        }
+                    }
+                },
+                "summary": "Get a single user",
+                "operationId": "get_user_resource",
+                "parameters": [
+                    {
+                        "name": "X-Fields",
+                        "in": "header",
+                        "type": "string",
+                        "format": "mask",
+                        "description": "An optional fields mask"
+                    }
+                ],
+                "tags": [
+                    "users"
+                ]
+            },
+            "delete": {
+                "responses": {
+                    "200": {
+                        "description": "Success"
+                    }
+                },
+                "summary": "Delete a user",
+                "operationId": "delete_user_resource",
                 "tags": [
                     "users"
                 ]
@@ -437,6 +521,10 @@
         {
             "name": "activities",
             "description": "Operations related to user activities"
+        },
+        {
+            "name": "metrics",
+            "description": "Operations related to metrics"
         }
     ],
     "definitions": {
@@ -547,27 +635,9 @@
             },
             "type": "object"
         },
-        "ActivityInput": {
-            "required": [
-                "date",
-                "task_id"
-            ],
-            "properties": {
-                "task_id": {
-                    "type": "string",
-                    "description": "Task ID"
-                },
-                "date": {
-                    "type": "string",
-                    "description": "Activity date (YYYY-MM-DD)"
-                }
-            },
-            "type": "object"
-        },
         "Activity": {
             "required": [
                 "date",
-                "points",
                 "task_id",
                 "user_id"
             ],
@@ -587,6 +657,85 @@
                 "points": {
                     "type": "integer",
                     "description": "Activity points"
+                },
+                "postcode": {
+                    "type": "string",
+                    "description": "User postcode"
+                }
+            },
+            "type": "object"
+        },
+        "ActivityInput": {
+            "properties": {
+                "points": {
+                    "type": "integer",
+                    "description": "Activity points"
+                }
+            },
+            "type": "object"
+        },
+        "PostcodeMetric": {
+            "required": [
+                "postcode",
+                "total_points"
+            ],
+            "properties": {
+                "postcode": {
+                    "type": "string",
+                    "description": "Postcode"
+                },
+                "total_points": {
+                    "type": "integer",
+                    "description": "Total points for the postcode"
+                }
+            },
+            "type": "object"
+        },
+        "PostcodeDetailMetric": {
+            "required": [
+                "postcode"
+            ],
+            "properties": {
+                "postcode": {
+                    "type": "string",
+                    "description": "Postcode"
+                },
+                "carbon_intensity": {
+                    "type": "number",
+                    "description": "Carbon intensity of electricity in gCO2/kWh (null if unavailable)."
+                },
+                "air_quality": {
+                    "type": "integer",
+                    "description": "Air quality index, 1 (low) to 10 (very high) (null if unavailable)."
+                },
+                "users": {
+                    "type": "array",
+                    "description": "Users in the postcode, ordered by points descending.",
+                    "items": {
+                        "$ref": "#/definitions/UserMetric"
+                    }
+                }
+            },
+            "type": "object"
+        },
+        "UserMetric": {
+            "required": [
+                "name",
+                "points",
+                "user_id"
+            ],
+            "properties": {
+                "user_id": {
+                    "type": "string",
+                    "description": "User ID"
+                },
+                "name": {
+                    "type": "string",
+                    "description": "User name"
+                },
+                "points": {
+                    "type": "integer",
+                    "description": "User points"
                 }
             },
             "type": "object"

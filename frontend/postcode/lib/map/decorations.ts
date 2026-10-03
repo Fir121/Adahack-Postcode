@@ -58,10 +58,3 @@ export function communityDecorations(
   // A scene always has one house; earned API decorations never add duplicates.
   return [house, ...trees];
 }
-
-export function decorationAnimates(
-  type: SceneDecoration["type"],
-  score: number,
-): boolean {
-  return type === "tree" || normalizeScore(score) >= 40;
-}

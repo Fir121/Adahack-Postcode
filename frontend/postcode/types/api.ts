@@ -22,17 +22,27 @@ export interface UserInputDto {
   postcode: string;
 }
 
-// Proposed contract: GET /postcodes/{postcode}/leaderboard.
-export interface CommunityLeaderboardDto {
-  postcode: string;
-  entries: { user_id: string; name: string; rank: number; points: number }[];
-}
-
 export interface ActivityInputDto {
-  task_id: string;
-  date: string;
+  points?: number;
 }
 export interface ActivityDto extends ActivityInputDto {
+  task_id: string;
+  date: string;
   user_id: string;
+  postcode?: string;
+}
+export interface PostcodeMetricDto {
+  postcode: string;
+  total_points: number;
+}
+export interface UserMetricDto {
+  user_id: string;
+  name: string;
   points: number;
+}
+export interface PostcodeDetailMetricDto {
+  postcode: string;
+  carbon_intensity?: number | null;
+  air_quality?: number | null;
+  users?: UserMetricDto[];
 }

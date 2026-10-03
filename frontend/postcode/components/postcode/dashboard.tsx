@@ -63,24 +63,25 @@ export function Dashboard() {
     if (user.data) select(user.data.communityId);
   };
   async function completed(result: CompletionResponse) {
-    client.setQueryData<PostcodeCommunity>(
-      queryKeys.community(result.completion.communityId),
-      (current) =>
-        current
-          ? {
-              ...current,
-              progress: result.progress,
-              decorations: result.decoration
-                ? [
-                    ...current.decorations.filter(
-                      (d) => d.id !== result.decoration!.id,
-                    ),
-                    result.decoration,
-                  ]
-                : current.decorations,
-            }
-          : current,
-    );
+    if (result.completion.status !== "recorded")
+      client.setQueryData<PostcodeCommunity>(
+        queryKeys.community(result.completion.communityId),
+        (current) =>
+          current
+            ? {
+                ...current,
+                progress: result.progress,
+                decorations: result.decoration
+                  ? [
+                      ...current.decorations.filter(
+                        (d) => d.id !== result.decoration!.id,
+                      ),
+                      result.decoration,
+                    ]
+                  : current.decorations,
+              }
+            : current,
+      );
     setFeedback(result);
     document.getElementById("sidebar-content")?.scrollTo({ top: 0 });
     // Refetches reconcile backend totals, histories, and all visible communities without reloading.
@@ -224,7 +225,9 @@ export function Dashboard() {
                 </strong>
                 <span>
                   {feedback.completion.status === "recorded"
-                    ? `${feedback.completion.points ?? 0} ${feedback.completion.points === 1 ? "point" : "points"} added to your recorded activities.`
+                    ? feedback.completion.points === undefined
+                      ? "Added to your action history."
+                      : `${feedback.completion.points} ${feedback.completion.points === 1 ? "point" : "points"} added to your recorded activities.`
                     : feedback.completion.status === "approved"
                       ? `Your community has ${feedback.progress.totalActions} actions this month.`
                       : "Check your account for its status."}
@@ -280,6 +283,10 @@ export function Dashboard() {
               onRetryTasks={() => {
                 void tasks.refetch();
                 void history.refetch();
+              }}
+              onRetryMetrics={() => {
+                void community.refetch();
+                void communities.refetch();
               }}
               onView={(next) => {
                 setView(next);

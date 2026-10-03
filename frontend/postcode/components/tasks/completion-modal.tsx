@@ -106,8 +106,9 @@ export function CompletionModal({
             </p>
             <div className="success-summary">
               <strong>
-                {mutation.data.completion.points}{" "}
-                {mutation.data.completion.points === 1 ? "point" : "points"}
+                {mutation.data.completion.points === undefined
+                  ? "Added to your action history"
+                  : `${mutation.data.completion.points} ${mutation.data.completion.points === 1 ? "point" : "points"}`}
               </strong>
             </div>
             <p className="muted">

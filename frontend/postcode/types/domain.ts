@@ -17,7 +17,12 @@ export interface SignupInput extends LoginInput {
   postcode: string;
 }
 
-export type IndicatorStatus = "poor" | "fair" | "good" | "excellent";
+export type IndicatorStatus =
+  | "poor"
+  | "fair"
+  | "good"
+  | "excellent"
+  | "unknown";
 export interface PostcodeIndicatorTrend {
   direction: "up" | "down" | "flat";
   change?: number;
@@ -33,6 +38,7 @@ export interface PostcodeIndicator {
   unit?: string;
   score?: number;
   status: IndicatorStatus;
+  statusLabel?: string;
   description?: string;
   trend?: PostcodeIndicatorTrend;
   source?: string;
@@ -52,6 +58,7 @@ export interface PostcodeStats {
 export interface CommunityProgress {
   scoreAvailable?: boolean;
   score: number;
+  totalPoints?: number;
   level: number;
   monthlyChange?: number;
   totalActions: number;
@@ -77,6 +84,7 @@ export interface PostcodeCommunity {
   indicators: PostcodeIndicator[];
   progress: CommunityProgress;
   decorations: MapDecoration[];
+  dataWarnings?: { score?: string; indicators?: string };
 }
 
 export type TaskCategory = string;
@@ -149,5 +157,5 @@ export interface CommunityLeaderboard {
   postcode: string;
   entries: LeaderboardEntry[];
   available: boolean;
-  source: "api" | "mock" | "activities";
+  source: "api" | "mock";
 }

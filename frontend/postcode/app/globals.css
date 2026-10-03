@@ -1294,6 +1294,10 @@ textarea[aria-invalid="true"] {
   background: var(--color-soft-red);
   color: var(--color-danger);
 }
+.status-unknown {
+  background: var(--color-background);
+  color: var(--color-muted);
+}
 .data-note {
   font-size: 8px;
   color: var(--color-muted);
@@ -1451,6 +1455,10 @@ textarea[aria-invalid="true"] {
   font-size: 11px;
   margin-top: 8px;
 }
+.action-card-shell {
+  position: relative;
+  margin: 12px 0;
+}
 .action-card {
   display: block;
   width: 100%;
@@ -1459,7 +1467,7 @@ textarea[aria-invalid="true"] {
   border-radius: 13px;
   background: var(--color-background);
   padding: 14px;
-  margin: 12px 0;
+  margin: 0;
 }
 .action-card:hover:not(:disabled) {
   background: var(--color-soft-green);
@@ -1470,6 +1478,107 @@ textarea[aria-invalid="true"] {
   align-items: center;
   justify-content: space-between;
   color: var(--color-secondary);
+  padding-right: 44px;
+  min-height: 36px;
+}
+.task-heading-with-feedback {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.task-feedback-button {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  background: var(--color-surface);
+  color: var(--color-secondary);
+}
+.action-card-shell > .task-feedback-button {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+}
+.task-feedback-button:hover,
+.task-feedback-button:focus-visible {
+  background: var(--color-soft-green);
+  border-color: var(--color-secondary);
+}
+.task-feedback-tooltip {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 3;
+  padding: 7px 10px;
+  border-radius: 6px;
+  background: var(--color-text);
+  color: var(--color-surface);
+  font-size: 10px;
+  line-height: 1.5;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.task-feedback-button:hover .task-feedback-tooltip,
+.task-feedback-button:focus-visible .task-feedback-tooltip {
+  display: block;
+}
+.feedback-page {
+  max-width: 700px;
+  margin: 0 auto;
+  padding: 35px 24px;
+}
+.feedback-form-card {
+  margin-top: 24px;
+  padding: 28px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+}
+.feedback-form-card .eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.feedback-form-card h1 {
+  font-size: 32px;
+  font-weight: 750;
+  margin: 8px 0 24px;
+}
+.feedback-form-card h2 {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.feedback-form-card p {
+  font-size: 12px;
+  line-height: 1.6;
+}
+.feedback-form-card select {
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+  padding: 11px 13px;
+  background: var(--color-background);
+  color: var(--color-text);
+  font-size: 13px;
+}
+.feedback-form-card .button {
+  margin-top: 16px;
+}
+.feedback-saved > svg {
+  color: var(--color-secondary);
+  margin-bottom: 12px;
+}
+.feedback-saved .button {
+  display: flex;
+  width: fit-content;
 }
 .task-category {
   display: flex;

@@ -2,11 +2,15 @@ export const endpoints = {
   coordinates: "/coordinates/",
   coordinate: (postcode: string) =>
     "/coordinates/" + encodeURIComponent(postcode),
-  activities: (userId: string) => "/activities/" + encodeURIComponent(userId),
+  activities: "/activities",
+  activity: (date: string, userId: string, taskId: string) =>
+    ["/activities", date, userId, taskId]
+      .map((part, index) => (index ? encodeURIComponent(part) : part))
+      .join("/"),
+  metrics: "/metrics/",
+  metric: (postcode: string) => "/metrics/" + encodeURIComponent(postcode),
   tasks: "/tasks",
   task: (id: string) => "/tasks/" + encodeURIComponent(id),
-  leaderboard: (postcode: string) =>
-    "/postcodes/" + encodeURIComponent(postcode) + "/leaderboard",
   users: "/users",
   user: (id: string) => "/users/" + encodeURIComponent(id),
 };

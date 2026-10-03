@@ -13,6 +13,7 @@ export const indicatorStatus: Record<
   IndicatorStatus,
   { label: string; className: string; rank: number }
 > = {
+  unknown: { label: "Unavailable", className: "status-unknown", rank: 4 },
   poor: { label: "Needs a little love", className: "status-poor", rank: 0 },
   fair: { label: "Room to grow", className: "status-fair", rank: 1 },
   good: { label: "Doing well", className: "status-good", rank: 2 },
