@@ -384,9 +384,9 @@ components:
         postcode:
           type: string
           example: EH1 1YZ
-        total_points:
-          type: integer
-          example: 250
+        score:
+          type: number
+          example: 65
 
     PostcodeDetailMetric:
       type: object
@@ -395,6 +395,9 @@ components:
         postcode:
           type: string
           example: EH1 1YZ
+        score:
+          type: number
+          example: 65
         carbon_intensity:
           type: number
           nullable: true
