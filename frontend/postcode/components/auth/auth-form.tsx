@@ -133,22 +133,22 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
             <div className="illustration-sun" />
             <Image
               src="/map-assets/tree.svg"
-              width={160}
-              height={200}
+              width={128}
+              height={128}
               className="illustration-tree tree-left"
               alt=""
             />
             <Image
               src="/map-assets/house.svg"
-              width={220}
-              height={200}
+              width={192}
+              height={192}
               className="illustration-house"
               alt=""
             />
             <Image
               src="/map-assets/tree.svg"
-              width={160}
-              height={200}
+              width={96}
+              height={96}
               className="illustration-tree tree-right"
               alt=""
             />

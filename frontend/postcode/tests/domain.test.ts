@@ -19,6 +19,13 @@ import { apiConfig } from "../lib/api/config";
 import { getCurrentUser } from "../lib/api/auth";
 import { completeTask } from "../lib/api/completions";
 import { adaptCommunity } from "../lib/api/postcodes";
+import {
+  communityDecorations,
+  decorationAnimates,
+  treeCount,
+  houseSaturation,
+} from "../lib/map/decorations";
+import { scoreColor, scoreTextColor } from "../lib/map/config";
 
 const storage = new Map<string, string>();
 Object.defineProperty(globalThis, "localStorage", {
@@ -29,6 +36,84 @@ Object.defineProperty(globalThis, "localStorage", {
   },
 });
 beforeEach(() => storage.clear());
+
+test("centroid-only API data builds a score-dependent frontend scene", async () => {
+  await mockLogin(demoInfo);
+  const original = await mockCommunity("eh3-9gd");
+  const adapted = adaptCommunity({
+    ...original,
+    decorations: undefined,
+    centroid: { type: "Point", coordinates: [-3.192934, 55.943437] },
+  });
+  assert.deepEqual(adapted.centroid, original.centroid);
+  assert.deepEqual(adapted.decorations, []);
+  // Backend levels do not override frontend rules derived from the score.
+  const sceneAt = (score: number) =>
+    communityDecorations({
+      ...adapted,
+      progress: { ...adapted.progress, score, level: 5 },
+    });
+  assert.deepEqual(
+    sceneAt(0).map((asset) => asset.type),
+    ["house", "tree"],
+  );
+  assert.equal(decorationAnimates("house", 39), false);
+  assert.equal(decorationAnimates("house", 40), true);
+  assert.equal(decorationAnimates("tree", 0), true);
+  assert.equal(treeCount(-50), 1);
+  assert.equal(treeCount(10), 1);
+  assert.equal(treeCount(11), 2);
+  assert.equal(treeCount(68), 7);
+  assert.equal(treeCount(1000), 10);
+  assert.equal(houseSaturation(0), 0);
+  assert.equal(houseSaturation(50), 0.5);
+  assert.equal(houseSaturation(100), 1);
+  for (let score = 0; score <= 100; score++) {
+    const scene = sceneAt(score);
+    assert.equal(scene.filter((asset) => asset.type === "house").length, 1);
+    const trees = scene.filter((asset) => asset.type === "tree");
+    const left = trees.filter((asset) => asset.offsetX < 0).length;
+    const right = trees.filter((asset) => asset.offsetX > 0).length;
+    assert.ok(trees.length >= 1 && trees.length <= 10);
+    assert.ok(Math.abs(left - right) <= 1);
+  }
+  const duplicated = communityDecorations({
+    ...adapted,
+    decorations: [
+      {
+        id: "earned-house",
+        type: "house",
+        longitude: 0,
+        latitude: 0,
+        animation: "grow",
+        minGreenLevel: 0,
+      },
+      {
+        id: "earned-bike",
+        type: "bike",
+        longitude: 0,
+        latitude: 0,
+        animation: "grow",
+        minGreenLevel: 0,
+      },
+    ],
+  });
+  assert.equal(duplicated.filter((asset) => asset.type === "house").length, 1);
+  assert.ok(
+    duplicated.every(
+      (asset) => asset.type === "house" || asset.type === "tree",
+    ),
+  );
+});
+
+test("score shading moves from red through yellow to green with readable label ink", () => {
+  const palette = ["#d94a49", "#f1cc58", "#367754"];
+  assert.equal(scoreColor(-20, palette), "rgb(217,74,73)");
+  assert.equal(scoreColor(50, palette), "rgb(241,204,88)");
+  assert.equal(scoreColor(120, palette), "rgb(54,119,84)");
+  assert.equal(scoreTextColor(scoreColor(50, palette)), "#000000");
+  assert.equal(scoreTextColor(scoreColor(100, palette)), "#ffffff");
+});
 
 test("formatting and existence validation remain separate", async () => {
   assert.equal(normalizePostcode("eh39gd"), "EH3 9GD");

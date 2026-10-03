@@ -1,6 +1,5 @@
 import type {
   DemoInfo,
-  MapDecoration,
   PostcodeCommunity,
   PostcodeIndicator,
   Task,
@@ -219,89 +218,14 @@ function community(
   scores: number[],
   total: number,
 ): PostcodeCommunity {
-  // These polygons are synthetic demo areas, NOT official unit-postcode boundaries.
-  const offsets = [
-    [-0.00115, -0.00062],
-    [0.00072, -0.00078],
-    [0.0013, -0.0002],
-    [0.00105, 0.00062],
-    [-0.0001, 0.00088],
-    [-0.00125, 0.00042],
-    [-0.00115, -0.00062],
-  ];
-  const decorations: MapDecoration[] = [
-    {
-      id: `${id}-tree-1`,
-      type: "tree",
-      longitude: longitude - 0.00065,
-      latitude: latitude + 0.00025,
-      animation: "grow",
-      minGreenLevel: 1,
-      indicator: "green_space",
-    },
-    {
-      id: `${id}-tree-2`,
-      type: "tree",
-      longitude: longitude + 0.00062,
-      latitude: latitude + 0.00042,
-      animation: "grow",
-      minGreenLevel: 2,
-      indicator: "green_space",
-    },
-    {
-      id: `${id}-house`,
-      type: "house",
-      longitude: longitude + 0.00056,
-      latitude: latitude - 0.00032,
-      animation: "appear",
-      minGreenLevel: 0,
-      indicator: "energy",
-    },
-    {
-      id: `${id}-plant`,
-      type: "plant",
-      longitude: longitude - 0.00048,
-      latitude: latitude - 0.00035,
-      animation: "grow",
-      minGreenLevel: 2,
-      indicator: "green_space",
-    },
-    {
-      id: `${id}-solar`,
-      type: "solar-panel",
-      longitude: longitude + 0.00075,
-      latitude: latitude - 0.0002,
-      animation: "appear",
-      minGreenLevel: 4,
-      indicator: "energy",
-    },
-    {
-      id: `${id}-bike`,
-      type: "bike",
-      longitude: longitude - 0.0002,
-      latitude: latitude + 0.0006,
-      animation: "appear",
-      minGreenLevel: 3,
-      indicator: "transport",
-    },
-  ];
   return {
     id,
     postcode,
     name,
     city: "Edinburgh",
     centroid: { latitude, longitude },
-    geometryProvenance: "demo",
-    boundary: {
-      type: "Feature",
-      properties: { communityId: id, demoGeometry: true },
-      geometry: {
-        type: "Polygon",
-        coordinates: [offsets.map(([x, y]) => [longitude + x, latitude + y])],
-      },
-    },
     indicators: indicators(scores),
-    decorations,
+    decorations: [],
     progress: {
       score,
       level: greenLevel(score),
@@ -333,7 +257,7 @@ function community(
   };
 }
 
-// Centroids verified through postcodes.io; every boundary and indicator is illustrative.
+// Centroids verified through postcodes.io; all indicators are illustrative.
 export function createMockCommunities(): PostcodeCommunity[] {
   return [
     community(

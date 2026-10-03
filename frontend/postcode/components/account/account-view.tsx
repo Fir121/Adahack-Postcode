@@ -218,7 +218,7 @@ export function AccountView() {
         </section>
       </div>
       <p className="account-footnote">
-        PL Green Together is an independent community project.
+        Our Patch is an independent community project.
       </p>
     </main>
   );

@@ -33,32 +33,26 @@ The canonical frontend models live in [`types/domain.ts`](../types/domain.ts). S
 }
 ```
 
-A community includes `id`, `postcode`, `name`, `city`, `centroid`, optional `boundary`, `geometryProvenance`, `indicators`, `progress`, and `decorations`.
+A community includes `id`, `postcode`, `name`, `city`, `centroid`, `indicators`, and `progress`. Optional `decorations` contains earned decorative assets; the frontend supplies the base scene and its Green Score rules.
 
 ```json
 {
-  "centroid": { "latitude": 55.943437, "longitude": -3.192934 },
-  "geometryProvenance": "demo",
-  "boundary": {
-    "type": "Feature",
-    "properties": { "communityId": "eh3-9gd", "demoGeometry": true },
-    "geometry": {
-      "type": "Polygon",
-      "coordinates": [
-        [
-          [-3.193, 55.943],
-          [-3.192, 55.943],
-          [-3.192, 55.944],
-          [-3.193, 55.944],
-          [-3.193, 55.943]
-        ]
-      ]
-    }
+  "centroid": { "latitude": 55.943437, "longitude": -3.192934 }
+}
+```
+
+The adapter also accepts a GeoJSON Point for the centroid:
+
+```json
+{
+  "centroid": {
+    "type": "Point",
+    "coordinates": [-3.192934, 55.943437]
   }
 }
 ```
 
-GeoJSON coordinates are **longitude, latitude**, not latitude, longitude. Polygon rings must close. MultiPolygon is also supported. A unit postcode does not imply an authoritative polygon: omit `boundary` when none exists, and the map will still focus on the centroid. Set `geometryProvenance: "authoritative"` only when the geometry has that provenance.
+GeoJSON coordinates are **longitude, latitude**. No postcode boundary or polygon data is needed or drawn. Every postcode has a label at its centroid; its background continuously interpolates red at 0, yellow at 50 and green at 100. Selecting a postcode reveals its house-and-tree scene, anchored above the label using screen-space offsets. The scene is illustrative, not geographic data about real trees or homes.
 
 ## Indicators and progress are separate
 
@@ -144,6 +138,8 @@ The backend must enforce session authorization, supported/existing postcodes, co
 
 ## Replace artwork and recommendations
 
-The map asset registry is `lib/map/config.ts`. Replace the referenced SVGs in `public/map-assets/` or extend the registry with another renderer; marker coordinates and event handling stay in the map component. Decorative points express gamified progress, not measured physical trees or installations.
+The map asset registry is `lib/map/config.ts`. Replace the referenced artwork in `public/map-assets/` or extend the registry with another renderer. `lib/map/decorations.ts` owns frontend visibility and animation thresholds; the backend does not need to send a base scene. Earned decorations may still be stored by the API for future visual rules. The current renderer uses only the community score to generate one house and its trees, so earned or legacy assets do not create additional houses or other types of decoration. Visual rules use the normalized score, even when a backend supplies a different `level`.
+
+Default rules: exactly one house above the postcode label; `max(1, ceil(score / 10))` trees (1–10), balanced left/right; house saturation `score / 100`, leaving brightness and hue controls untouched. House smoke starts at 40; the supplied tree animation plays at all scores. Pixel spacing gives a small overlap and stays stable when zooming. Narrow maps scale the whole composition to fit. Reduced motion overrides animation. These rules can be changed in the frontend when final visual rules arrive.
 
 The small deterministic ranking in `lib/tasks.ts` prioritizes tasks related to the weakest indicator. It can be replaced with a backend recommendation service when that contract exists.

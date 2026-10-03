@@ -17,18 +17,17 @@ export function Wordmark({ compact = false }: { compact?: boolean }) {
     <Link
       href="/"
       className={`wordmark ${compact ? "wordmark-compact" : ""}`}
-      aria-label="PL Green Together home"
+      aria-label="Our Patch home"
     >
       <span className="brand-symbol">
         <Sprout size={26} strokeWidth={2.3} />
       </span>
       <span>
         <span className="wordmark-name">
-          <span className="wordmark-pl">PL</span> Green Together
-          <span className="brand-dot">.</span>
+          Our Patch
         </span>
         <span className="wordmark-caption">
-          SMALL ACTIONS. GREENER POSTCODES.
+          GROW YOUR STREET TOGETHER
         </span>
       </span>
     </Link>

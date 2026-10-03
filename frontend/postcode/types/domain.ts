@@ -1,5 +1,3 @@
-import type { Feature, MultiPolygon, Polygon } from "geojson";
-
 export interface User {
   id: string;
   name: string;
@@ -76,8 +74,6 @@ export interface PostcodeCommunity {
   name: string;
   city: string;
   centroid: { latitude: number; longitude: number };
-  boundary?: Feature<Polygon | MultiPolygon>;
-  geometryProvenance: "demo" | "authoritative";
   indicators: PostcodeIndicator[];
   progress: CommunityProgress;
   decorations: MapDecoration[];

@@ -16,12 +16,14 @@
   --color-soft-yellow: #faf3dc;
   --color-soft-red: #f9eeea;
   --color-map-background: #ecefe5;
-  --color-green-level-0: #d5dcd3;
-  --color-green-level-1: #d5e7c3;
-  --color-green-level-2: #b2d99b;
-  --color-green-level-3: #83bf79;
-  --color-green-level-4: #4d9766;
-  --color-green-level-5: #246344;
+  --color-topbar: #e30027;
+  --color-score-low: #d94a49;
+  --color-score-middle: #f1cc58;
+  --color-score-high: #367754;
+  --color-street-path: #bdd0b2;
+  --color-street-minor: #ded8be;
+  --color-street-major: #e4c497;
+  --color-street-outline: #c6bca5;
   --font-heading: "Arial", "Helvetica Neue", sans-serif;
   --font-body: "Arial", "Helvetica Neue", sans-serif;
   --radius-card: 24px;
@@ -223,8 +225,9 @@ select {
 /* Shared navigation */
 .app-header {
   height: 86px;
-  background: var(--color-surface);
-  border-bottom: 1px solid var(--color-border);
+  background: var(--color-topbar);
+  color: var(--color-surface);
+  border-bottom: 1px solid #ffffff24;
 }
 .navbar {
   display: grid;
@@ -254,12 +257,14 @@ select {
 .nav-lottery:hover,
 .nav-account:hover,
 .nav-active {
-  color: var(--color-secondary);
+  color: var(--color-surface);
+  text-decoration: underline;
+  text-underline-offset: 4px;
 }
 .account-icon {
   width: 35px;
   height: 35px;
-  background: var(--color-soft-green);
+  background: #ffffff24;
   border-radius: 50%;
   display: grid;
   place-items: center;
@@ -287,11 +292,6 @@ select {
   letter-spacing: -0.8px;
   line-height: 1.2;
 }
-.wordmark-pl {
-  font-size: 12px;
-  font-weight: 800;
-  margin-right: 3px;
-}
 .wordmark-caption {
   display: block;
   margin-top: 4px;
@@ -306,12 +306,27 @@ select {
   min-height: 100vh;
 }
 .auth-header {
-  max-width: 1370px;
+  background: var(--color-topbar);
+  color: var(--color-surface);
   padding: 30px 50px;
   margin: 0 auto;
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+.app-header .wordmark-name,
+.app-header .wordmark-caption,
+.app-header .brand-dot,
+.auth-header .wordmark-name,
+.auth-header .wordmark-caption,
+.auth-header .brand-dot,
+.auth-header .auth-independent {
+  color: var(--color-surface);
+}
+.app-header .brand-symbol,
+.auth-header .brand-symbol {
+  background: #ffffff24;
+  color: var(--color-surface);
 }
 .auth-independent {
   font-size: 11px;
@@ -386,21 +401,24 @@ select {
   z-index: 2;
 }
 .tree-left {
-  width: 106px;
+  width: 128px;
   height: auto;
+  image-rendering: pixelated;
   left: 18px;
   bottom: 55px;
 }
 .tree-right {
-  width: 90px;
+  width: 96px;
   height: auto;
+  image-rendering: pixelated;
   right: 20px;
   bottom: 56px;
 }
 .illustration-house {
   position: absolute;
-  width: 175px;
+  width: 192px;
   height: auto;
+  image-rendering: pixelated;
   left: 120px;
   bottom: 47px;
   z-index: 2;
@@ -828,9 +846,9 @@ textarea[aria-invalid="true"] {
   border-radius: 5px;
   background: linear-gradient(
     to right,
-    var(--color-green-level-0),
-    var(--color-green-level-2),
-    var(--color-green-level-5)
+    var(--color-score-low),
+    var(--color-score-middle),
+    var(--color-score-high)
   );
 }
 .map-geometry-note {
@@ -872,39 +890,71 @@ textarea[aria-invalid="true"] {
   color: var(--color-muted);
 }
 .map-postcode-label {
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
-  color: var(--color-primary);
-  padding: 7px 12px;
+  border: 2px solid var(--color-surface);
+  background: var(--postcode-color);
+  color: var(--postcode-ink);
+  padding: 9px 13px;
   border-radius: 9px;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   box-shadow: var(--shadow-floating);
   white-space: nowrap;
   z-index: 2;
+  transition:
+    background-color 0.6s ease,
+    color 0.6s ease;
 }
 .map-postcode-label.selected {
-  background: var(--color-primary);
-  color: var(--color-surface);
-  border-color: var(--color-primary);
+  box-shadow:
+    0 0 0 2px var(--color-primary),
+    var(--shadow-floating);
   z-index: 3;
 }
 .map-decoration {
   pointer-events: none;
+  position: absolute;
+  bottom: 0;
+  transform: translateX(-50%);
+}
+.map-postcode-scene {
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+.postcode-scene-stage {
+  position: absolute;
+  width: 0;
+  height: 0;
+  left: 0;
+  bottom: 0;
+  transform-origin: bottom center;
 }
 .map-asset {
   transform-origin: bottom center;
   animation: asset-grow 0.85s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
-.map-asset img {
+.asset-still {
+  animation: none;
+}
+.map-asset img,
+.map-sprite {
   display: block;
-  filter: drop-shadow(0 3px 2px #214e3910);
+  translate: var(--asset-content-x, 0) var(--asset-content-y, 0);
+  filter: saturate(var(--asset-saturation, 1)) drop-shadow(0 3px 2px #214e3910);
+  transition: filter 0.6s ease;
+}
+.map-sprite {
+  image-rendering: pixelated;
+  background-repeat: no-repeat;
 }
 .asset-appear {
   animation-name: asset-appear;
 }
-.asset-highlight .map-asset img {
-  filter: drop-shadow(0 0 9px var(--color-accent));
+.asset-highlight .map-asset img,
+.asset-highlight .map-sprite {
+  filter: saturate(var(--asset-saturation, 1))
+    drop-shadow(0 0 9px var(--color-accent));
 }
 .asset-unlocked .map-asset {
   animation: asset-unlock 1.2s cubic-bezier(0.2, 0.8, 0.2, 1) both;

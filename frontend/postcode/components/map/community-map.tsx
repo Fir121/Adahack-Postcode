@@ -6,19 +6,27 @@ import {
   Marker,
   NavigationControl,
   setWorkerUrl,
-  type GeoJSONSource,
   type StyleSpecification,
 } from "maplibre-gl";
 import { CircleAlert, LocateFixed, Minus, Plus, Sprout } from "lucide-react";
-import type { FeatureCollection, MultiPolygon, Polygon } from "geojson";
 import type { PostcodeCommunity } from "@/types/domain";
 import {
   mapAssets,
   mapConfig,
   readMapPalette,
   scoreColor,
+  scoreTextColor,
 } from "@/lib/map/config";
 import { errorMessage } from "@/lib/utils";
+import {
+  communityDecorations,
+  decorationAnimates,
+  houseSaturation,
+  postcodeSceneLayout,
+} from "@/lib/map/decorations";
+import { colourStreets, readStreetPalette } from "@/lib/map/basemap";
+import { greenLevel } from "@/lib/scoring";
+import { createAssetVisual } from "@/lib/map/asset-visual";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 interface MapProps {
@@ -26,7 +34,6 @@ interface MapProps {
   selected: PostcodeCommunity;
   ownCommunityId: string;
   selectedIndicator?: string;
-  newDecorationId?: string;
   onSelect: (id: string) => void;
   focusRequest: number;
 }
@@ -49,16 +56,23 @@ export default function CommunityMap(props: MapProps) {
   useEffect(() => {
     if (!container.current) return;
     let instance: LibreMap;
-    const decorations = new globalThis.Map<string, Marker>();
+    const visuals = new globalThis.Map<
+      string,
+      { element: HTMLDivElement; dispose: () => void }
+    >();
+    let scene: Marker | null = null;
+    let stage: HTMLDivElement | null = null;
+    let sceneCommunityId: string | null = null;
     const labels = new globalThis.Map<string, Marker>();
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
     const theme = getComputedStyle(document.documentElement);
     const palette = readMapPalette();
+    const streetPalette = readStreetPalette();
     const controller = new AbortController();
     let disposed = false;
     let styleReady = false;
+    let lastSceneRequest = latest.current.focusRequest;
     const warning =
-      "Street tiles are unavailable. Community areas and actions still work on this illustrative map.";
+      "Street tiles are unavailable. Postcode labels and actions still work on this map.";
     const localStyle: StyleSpecification = {
       version: 8,
       sources: {},
@@ -115,56 +129,25 @@ export default function CommunityMap(props: MapProps) {
       };
     }
 
+    function clearScene() {
+      visuals.forEach((visual) => visual.dispose());
+      visuals.clear();
+      scene?.remove();
+      scene = null;
+      stage = null;
+      sceneCommunityId = null;
+    }
+
     function sync() {
       if (disposed || !styleReady) return;
       const current = latest.current;
-      const geojson: FeatureCollection<Polygon | MultiPolygon> = {
-        type: "FeatureCollection",
-        features: current.communities.flatMap((community) =>
-          community.boundary
-            ? [
-                {
-                  ...community.boundary,
-                  properties: {
-                    communityId: community.id,
-                    color: scoreColor(community.progress.score, palette),
-                    selected: community.id === current.selected.id,
-                  },
-                },
-              ]
-            : [],
-        ),
-      };
-      const source = instance.getSource("communities") as
-        GeoJSONSource | undefined;
-      if (source) source.setData(geojson);
-      else {
-        instance.addSource("communities", { type: "geojson", data: geojson });
-        instance.addLayer({
-          id: "community-fill",
-          type: "fill",
-          source: "communities",
-          paint: {
-            "fill-color": ["get", "color"],
-            "fill-opacity": ["case", ["get", "selected"], 0.32, 0.2],
-            "fill-color-transition": {
-              duration: reducedMotion.matches ? 0 : 800,
-            },
-          },
-        });
-        instance.addLayer({
-          id: "community-border",
-          type: "line",
-          source: "communities",
-          paint: {
-            "line-color": ["get", "color"],
-            "line-width": ["case", ["get", "selected"], 3, 1.5],
-            "line-dasharray": [2, 2],
-            "line-opacity": 0.9,
-          },
-        });
+      if (
+        current.focusRequest !== lastSceneRequest ||
+        sceneCommunityId !== current.selected.id
+      ) {
+        clearScene();
+        lastSceneRequest = current.focusRequest;
       }
-      const visible = new Set<string>();
       for (const community of current.communities) {
         let label = labels.get(community.id);
         if (!label) {
@@ -183,7 +166,15 @@ export default function CommunityMap(props: MapProps) {
             .addTo(instance);
           labels.set(community.id, label);
         }
+        label.setLngLat([
+          community.centroid.longitude,
+          community.centroid.latitude,
+        ]);
         const element = label.getElement();
+        const color = scoreColor(community.progress.score, palette);
+        element.style.setProperty("--postcode-color", color);
+        element.style.setProperty("--postcode-ink", scoreTextColor(color));
+        element.dataset.communityId = community.id;
         element.textContent = `${community.postcode} · ${community.progress.score}`;
         element.setAttribute(
           "aria-label",
@@ -197,55 +188,98 @@ export default function CommunityMap(props: MapProps) {
           "selected",
           community.id === current.selected.id,
         );
-        for (const decoration of community.decorations.filter(
-          (d) => d.minGreenLevel <= community.progress.level,
-        )) {
-          const key = `${community.id}:${decoration.id}`;
-          visible.add(key);
-          let marker = decorations.get(key);
-          if (!marker) {
-            const wrapper = document.createElement("div");
-            wrapper.className = "map-decoration";
-            wrapper.setAttribute("aria-hidden", "true");
-            const visual = document.createElement("div");
-            visual.className = `map-asset asset-${decoration.animation}`;
-            const asset = mapAssets[decoration.type];
-            const img = document.createElement("img");
-            img.src = asset.src;
-            img.alt = "";
-            img.width = asset.width;
-            img.draggable = false;
-            visual.append(img);
-            wrapper.append(visual);
-            marker = new Marker({
-              element: wrapper,
-              anchor: "bottom",
-              rotationAlignment: "viewport",
-            })
-              .setLngLat([decoration.longitude, decoration.latitude])
-              .addTo(instance);
-            decorations.set(key, marker);
-          }
-          const element = marker.getElement();
-          element.classList.toggle(
-            "asset-highlight",
-            Boolean(
-              current.selectedIndicator &&
-              decoration.indicator === current.selectedIndicator &&
-              community.id === current.selected.id,
-            ),
+      }
+      const community = current.selected;
+      if (!scene) {
+        const root = document.createElement("div");
+        root.className = "map-postcode-scene";
+        root.setAttribute("aria-hidden", "true");
+        stage = document.createElement("div");
+        stage.className = "postcode-scene-stage";
+        root.append(stage);
+        scene = new Marker({
+          element: root,
+          anchor: "bottom",
+          rotationAlignment: "viewport",
+        })
+          .setLngLat([
+            community.centroid.longitude,
+            community.centroid.latitude,
+          ])
+          .addTo(instance);
+        sceneCommunityId = community.id;
+      }
+      const visible = new Set<string>();
+      const decorations = communityDecorations(community);
+      for (const decoration of decorations) {
+        const animated = decorationAnimates(
+          decoration.type,
+          community.progress.score,
+        );
+        const key = `${decoration.id}:${animated}`;
+        visible.add(key);
+        let visual = visuals.get(key);
+        if (!visual) {
+          const wrapper = document.createElement("div");
+          wrapper.className = "map-decoration";
+          wrapper.dataset.communityId = community.id;
+          wrapper.dataset.assetType = decoration.type;
+          const art = createAssetVisual(
+            mapAssets[decoration.type],
+            decoration.animation,
+            animated,
           );
-          element.classList.toggle(
-            "asset-unlocked",
-            decoration.id === current.newDecorationId,
-          );
+          wrapper.append(art.element);
+          stage!.append(wrapper);
+          visual = { element: wrapper, dispose: art.dispose };
+          visuals.set(key, visual);
+        }
+        const element = visual.element;
+        element.style.left = `${decoration.offsetX}px`;
+        element.style.zIndex = String(decoration.zIndex);
+        element.style.setProperty(
+          "--asset-saturation",
+          String(
+            decoration.type === "house"
+              ? houseSaturation(community.progress.score)
+              : 1,
+          ),
+        );
+        element.dataset.greenLevel = String(
+          greenLevel(community.progress.score),
+        );
+        element.classList.toggle(
+          "asset-highlight",
+          decoration.indicator === current.selectedIndicator,
+        );
+      }
+      for (const [key, visual] of visuals) {
+        if (!visible.has(key)) {
+          visual.dispose();
+          visual.element.remove();
+          visuals.delete(key);
         }
       }
-      for (const [key, marker] of decorations)
-        if (!visible.has(key)) {
-          marker.remove();
-          decorations.delete(key);
-        }
+      // Keep the composition attached to the label in CSS pixels at every zoom.
+      const halfWidth = Math.max(
+        ...decorations.map(
+          (decoration) =>
+            Math.abs(decoration.offsetX) + mapAssets[decoration.type].width / 2,
+        ),
+      );
+      const available = Math.max(
+        1,
+        (container.current?.clientWidth ?? 1) -
+          postcodeSceneLayout.edgePadding * 2,
+      );
+      stage!.style.transform = `scale(${Math.min(1, available / (halfWidth * 2))})`;
+      const labelHeight =
+        labels.get(community.id)?.getElement().offsetHeight ?? 42;
+      scene.setLngLat([
+        community.centroid.longitude,
+        community.centroid.latitude,
+      ]);
+      scene.setOffset([0, -labelHeight / 2 - postcodeSceneLayout.labelGap]);
       for (const [id, marker] of labels)
         if (!current.communities.some((c) => c.id === id)) {
           marker.remove();
@@ -258,16 +292,6 @@ export default function CommunityMap(props: MapProps) {
       sync();
       if (!disposed) setReady(true);
     });
-    instance.on("click", "community-fill", (event) => {
-      const id = event.features?.[0]?.properties?.communityId;
-      if (typeof id === "string") latest.current.onSelect(id);
-    });
-    instance.on("mouseenter", "community-fill", () => {
-      instance.getCanvas().style.cursor = "pointer";
-    });
-    instance.on("mouseleave", "community-fill", () => {
-      instance.getCanvas().style.cursor = "";
-    });
     instance.on("error", () => {
       if (!disposed) setProviderWarning(warning);
     });
@@ -277,7 +301,10 @@ export default function CommunityMap(props: MapProps) {
           "The browser lost its map graphics connection. Retry the map, or keep exploring with the postcode selector.",
         );
     });
-    const resize = new ResizeObserver(() => instance.resize());
+    const resize = new ResizeObserver(() => {
+      instance.resize();
+      sync();
+    });
     resize.observe(container.current);
     const timeout = setTimeout(() => controller.abort(), 12_000);
     void fetch(mapConfig.styleUrl, { signal: controller.signal })
@@ -286,7 +313,7 @@ export default function CommunityMap(props: MapProps) {
         const style = (await response.json()) as StyleSpecification;
         if (!disposed) {
           styleReady = false;
-          instance.setStyle(style);
+          instance.setStyle(colourStreets(style, streetPalette));
         }
       })
       .catch(() => {
@@ -299,7 +326,7 @@ export default function CommunityMap(props: MapProps) {
       clearTimeout(timeout);
       resize.disconnect();
       updateMap.current = null;
-      decorations.forEach((m) => m.remove());
+      clearScene();
       labels.forEach((m) => m.remove());
       instance.remove();
       map.current = null;
@@ -403,9 +430,7 @@ export default function CommunityMap(props: MapProps) {
         <span>THRIVING</span>
       </div>
       <span className="map-geometry-note">
-        {props.selected.geometryProvenance === "demo"
-          ? "Illustrative areas & decorations"
-          : "Community boundaries · illustrative decorations"}
+        Postcode colour shows Green Score · tap a label to explore
       </span>
     </div>
   );

@@ -275,11 +275,6 @@ export function CommunitySidebar(props: SidebarProps) {
           </div>
         </>
       )}
-      {!community.boundary && (
-        <p className="data-note">
-          No boundary is available; the map uses the community centroid.
-        </p>
-      )}
       <p className="sidebar-footnote">
         Your actions grow community progress. Environmental measurements update
         from their sources.

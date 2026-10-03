@@ -126,15 +126,9 @@ export function Dashboard() {
     <main id="main-content" className="dashboard">
       <section className="dashboard-heading">
         <div>
-          <span className="eyebrow">
-            <span className="small-dot" /> GOOD THINGS START CLOSE TO HOME
-          </span>
           <h1>
-            Small actions. <span>A greener postcode.</span>
+            Take action <span>together.</span>
           </h1>
-          <p>
-            Your neighbourhood, your little contributions, our shared progress.
-          </p>
         </div>
         <div className="home-badge">
           <span className="home-badge-icon">
@@ -183,7 +177,6 @@ export function Dashboard() {
             selectedIndicator={
               typeof view === "object" ? view.indicatorId : undefined
             }
-            newDecorationId={feedback?.decoration?.id}
             focusRequest={focusRequest}
           />
           <div className="map-bottom-story">
@@ -292,11 +285,7 @@ export function Dashboard() {
       </div>
       <footer className="dashboard-footer">
         <span>
-          <Sprout size={13} /> Your actions contribute to making your postcode
-          greener.
-        </span>
-        <span>
-          Independent hackathon demo · Community progress is illustrative.
+          Built by Team FlickFlack · Usage Data is for demonstration purposes only.
         </span>
       </footer>
       {task && (

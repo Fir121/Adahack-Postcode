@@ -1,4 +1,4 @@
-# PL Green Together
+# Our Patch
 
 An independent sustainability hackathon frontend. Understand your postcode's environmental indicators, choose a relevant action, submit task-specific proof, and watch community progress grow.
 
@@ -25,12 +25,14 @@ Supported demo postcodes: **EH3 9GD**, **EH3 9FG**, **EH8 9LJ**. All are explora
 3. Select an indicator to see source/context, related activity, and actions.
 4. Open the recommended action or browse all actions.
 5. Submit declaration, text, photo, or combined proof as required by that task.
-6. Activity and gamified score increase; an SVG decoration appears on the map. Environmental measurements stay unchanged.
+6. Activity and gamified score increase; house saturation and tree count follow the new score. Environmental measurements stay unchanged.
 7. View completion history in My Account. Refreshes preserve mock sessions and progress.
 
 Daily tasks can be completed once per London calendar day; one-off tasks remain completed. Demo proof is immediately approved. Files are validated but not retained in browser storage. Reset demo on the sign-in/account page clears browser-local demo accounts and progress.
 
-All environmental values, scores, activity totals, polygons, and decorations are illustrative. Postcode centroids were checked against [postcodes.io](https://postcodes.io/); polygons are not authoritative postcode boundaries. The map uses [OpenFreeMap](https://openfreemap.org/quick_start/) tiles, with built-in provider-failure messaging and an illustrative map fallback. Decorations are geographically anchored through MapLibre markers.
+Environmental values, scores, activity totals and decorations are illustrative. Postcode centroids were checked against [postcodes.io](https://postcodes.io/). The map draws no postcode polygons: labels at latitude/longitude centroids carry a continuous red → yellow → green score colour. Only the selected postcode shows its decorative scene; tapping another label swaps scenes and replays eligible animations. The map uses [OpenFreeMap](https://openfreemap.org/quick_start/) tiles with muted coloured streets, provider-failure messaging and a centroid-label fallback. Street colours describe road styling, not community scores.
+
+The top bars use `#E30027`; the rest of the interface retains its green palette. Frontend rules in `lib/map/decorations.ts` define one house directly above the selected postcode label and 1–10 trees, alternating left/right with a small overlap. Tree count is `max(1, ceil(score / 10))`; house saturation is `score / 100` (grayscale at 0, original colour at 100). The scene fits narrower maps and keeps its spacing when zooming. House smoke starts at 40; tree animation runs at every score. Score changes update the count and saturation; the current scene uses houses and trees only. Environmental measurements stay unchanged after completion. Backend community data requires a centroid and score, with optional earned decorations.
 
 The Postcode Lottery navigation item is an external link. This project is independent and uses its own wordmark and artwork.
 
@@ -50,12 +52,29 @@ Real implementations exist for authentication, current user, supported postcodes
 - `lib/mock/`: fixture data, browser storage, and validated mock mutations.
 - `lib/tasks.ts`: task eligibility, proof validation, and deterministic recommendations.
 - `lib/scoring.ts`: normalized scoring and status presentation.
-- `lib/map/config.ts`: basemap settings, artwork registry, and theme-driven shading.
+- `lib/map/config.ts`: basemap settings, artwork registry, and score shading.
+- `lib/map/decorations.ts`: score-dependent scene and animation rules.
+- `lib/map/basemap.ts`: street colours for the default basemap.
 - `app/globals.css`: centralized colours, typography, radii, map palette, and responsive styles.
-- `public/map-assets/`: replaceable original placeholder SVGs.
+- `public/map-assets/`: supplied house artwork and replaceable placeholder SVGs for other assets.
 - `scripts/copy-maplibre-worker.mjs`: copies MapLibre v6's worker and shared module to `public/maplibre/` before development/build, as required for Turbopack. Generated vendor files are ignored in Git and regenerated from the installed version.
 
 The map is dynamically loaded through a client wrapper. Server layouts remain server components; the authenticated shell checks the current-user query before rendering protected content. React state handles sidebar selection, modal visibility, and mobile drawer state. TanStack Query synchronizes API state and invalidates community/history queries after completion.
+
+## Resprite artwork
+
+`House.resprite` and `Tree.resprite` in the repository root supply the house and tree visuals. The tree has nine 32×32 frames at 12 fps, rendered at 2× scale; its source transparency and timing are preserved. `House.resprite` supplies the house visual. Its 32×32 canvas, eight frames at 12 fps, transparency, offsets, layer order and frame durations are preserved. From Green Score 40, the selected postcode loops the original chimney-smoke animation at a crisp 3× scale; lower scores use a still house. Authentication uses the first frame at 6× scale. Reduced motion shows the first frame and also responds to preference changes while the page is open. The house/tree composition is attached above the centroid label using pixel offsets; scale, spacing, saturation and animation thresholds are configured in the frontend.
+
+To regenerate the browser assets from `frontend/postcode`:
+
+```sh
+node scripts/import-resprite.mjs ../../House.resprite house
+node scripts/import-resprite.mjs ../../Tree.resprite tree
+```
+
+The importer requires `unzip` (included on macOS). It produces a static SVG, a horizontal SVG sprite sheet, and a JSON timing manifest in `public/map-assets/`. These SVGs contain the original PNG cels without tracing or recompressing them. The frontend serves these generated files, so deployment does not require Resprite or the source archive. Register new artwork in `lib/map/config.ts`; source timeline playback is handled by `lib/map/asset-visual.ts` and is cleaned up with its marker.
+
+This importer handles Resprite format 2 with visible normal-blend raster layers and independent cels. Groups, clipping masks, linked cels, tilesets, named/directional clips or other blend modes require a flattened transparent PNG sprite-sheet export plus frame dimensions, frame order and per-frame timing. It fails explicitly on unsupported features. For future visuals, provide the file and rules for when it appears, which frames/clips play, looping, display size and geographic anchor. Gameplay rules are configured separately from artwork.
 
 ## Verification
 

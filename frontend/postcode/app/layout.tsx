@@ -3,9 +3,9 @@ import { Providers } from "@/components/providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "PL Green Together — small actions, greener postcodes",
+  title: "Our Patch - Grow your street together",
   description:
-    "Understand your local environment, take practical actions, and help your postcode grow greener. An independent community project.",
+    "Understand your local environment, take practical actions, and help your postcode grow greener. Built by Team FlickFlack.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
