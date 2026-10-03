@@ -6,6 +6,8 @@ Repository for AdaHack 2026 - Our Patch.
 
 [Slides](/demo/AdaHack%20-%20Our%20Patch.pdf)
 
+[Devpost](https://devpost.com/software/ourpatch-grow-your-street-together)
+
 ## Inspiration
 At Postcode Lottery you don't play on your own. You play with the neighbours who share your postcode. We wanted keeping a street green to work the same way. Residents see climate change as an urgent problem, but one person's effort can feel too small to matter. Our Patch makes that effort visible and shared.
 
