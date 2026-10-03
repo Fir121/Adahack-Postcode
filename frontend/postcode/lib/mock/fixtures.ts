@@ -8,7 +8,6 @@ import { greenLevel } from "@/lib/scoring";
 
 export const demoInfo: DemoInfo = {
   email: "demo@greentogether.test",
-  password: "GreenTogether!",
   postcode: "EH3 9GD",
 };
 

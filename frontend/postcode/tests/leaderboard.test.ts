@@ -46,15 +46,64 @@ test("leaderboard request uses encoded home postcode and preserves backend ranks
     apiConfig.useMock = previous;
   }
 });
-test("missing endpoint, empty ranking and API failures remain distinct", async (t) => {
+test("missing leaderboard endpoint derives real activity points; empty results and failures stay distinct", async (t) => {
   const previous = apiConfig.useMock;
   apiConfig.useMock = false;
   try {
     for (const status of [404, 501]) {
-      t.mock.method(globalThis, "fetch", async () =>
-        Response.json({ message: "Coming soon" }, { status }),
+      t.mock.method(globalThis, "fetch", async (url: string) => {
+        if (url.endsWith("/users"))
+          return Response.json([
+            {
+              user_id: "a",
+              name: "Alex",
+              email: "a@example.test",
+              postcode: "EH9 1AB",
+            },
+            {
+              user_id: "b",
+              name: "Jamie",
+              email: "b@example.test",
+              postcode: "EH9 1AB",
+            },
+            {
+              user_id: "outside",
+              name: "Other",
+              email: "other@example.test",
+              postcode: "EH9 1AD",
+            },
+          ]);
+        if (url.includes("/activities/"))
+          return Response.json([
+            {
+              user_id: url.endsWith("/a") ? "a" : "b",
+              task_id: "1",
+              date: "2026-10-03",
+              points: 4,
+            },
+            {
+              user_id: url.endsWith("/a") ? "a" : "b",
+              task_id: "2",
+              date: "2026-10-01",
+              points: 2,
+            },
+          ]);
+        return Response.json({ message: "Coming soon" }, { status });
+      });
+      const leaderboard = await getCommunityLeaderboard("EH9 1AB");
+      assert.equal(leaderboard.available, true);
+      assert.equal(leaderboard.source, "activities");
+      assert.deepEqual(
+        leaderboard.entries.map((entry) => [
+          entry.userId,
+          entry.points,
+          entry.rank,
+        ]),
+        [
+          ["a", 6, 1],
+          ["b", 6, 1],
+        ],
       );
-      assert.equal((await getCommunityLeaderboard("EH9 1AB")).available, false);
     }
     t.mock.method(globalThis, "fetch", async () =>
       Response.json({ postcode: "EH9 1AB", entries: [] }),

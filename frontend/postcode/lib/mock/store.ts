@@ -5,8 +5,8 @@ import { createMockCommunities } from "./fixtures";
 export const STORAGE_KEY = "pl-green-together-demo-v1";
 export interface MockAccount {
   user: User;
-  passwordHash: string;
-  salt: string;
+  passwordHash?: string;
+  salt?: string;
 }
 export interface MockDatabase {
   version: 1;

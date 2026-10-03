@@ -14,30 +14,6 @@ import { isPostcodeFormat, normalizePostcode } from "@/lib/utils";
 import { greenLevel } from "@/lib/scoring";
 import { isTaskAvailable, validateProof } from "@/lib/tasks";
 
-async function hashPassword(password: string, salt: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    "raw",
-    encoder.encode(password),
-    "PBKDF2",
-    false,
-    ["deriveBits"],
-  );
-  const bits = await crypto.subtle.deriveBits(
-    {
-      name: "PBKDF2",
-      salt: encoder.encode(salt),
-      iterations: 100_000,
-      hash: "SHA-256",
-    },
-    key,
-    256,
-  );
-  return Array.from(new Uint8Array(bits), (byte) =>
-    byte.toString(16).padStart(2, "0"),
-  ).join("");
-}
-
 function requireUser(db: MockDatabase): User {
   const user = db.accounts.find((a) => a.user.id === db.sessionUserId)?.user;
   if (!user) throw new ApiError("Please sign in to continue.", 401);
@@ -54,12 +30,10 @@ async function seededDatabase(): Promise<MockDatabase> {
       postcode: demoInfo.postcode,
       communityId: "eh3-9gd",
     };
-    const salt = crypto.randomUUID();
-    const passwordHash = await hashPassword(demoInfo.password, salt);
-    // Re-read after hashing so concurrent first-load requests don't overwrite changes.
+    // Re-read so concurrent first-load requests don't overwrite changes.
     const latest = readDatabase();
     if (!latest.accounts.some((a) => a.user.email === demoInfo.email)) {
-      latest.accounts.push({ user, salt, passwordHash });
+      latest.accounts.push({ user });
       const previousDay = new Date();
       previousDay.setDate(previousDay.getDate() - 1);
       latest.completions.push({
@@ -84,15 +58,14 @@ async function seededDatabase(): Promise<MockDatabase> {
 export async function mockLogin(input: LoginInput): Promise<AuthResponse> {
   const db = await seededDatabase();
   const account = db.accounts.find(
-    (a) => a.user.email === input.email.trim().toLowerCase(),
+    (a) =>
+      a.user.email.trim().toLowerCase() === input.email.trim().toLowerCase(),
   );
-  if (
-    !account ||
-    (await hashPassword(input.password, account.salt)) !== account.passwordHash
-  )
+  if (!account)
     throw new ApiError(
-      "That email and password don't match. Please try again.",
-      401,
+      "No account was found for that email. Join us to create one.",
+      404,
+      { email: "No account found for this email." },
     );
   const latest = readDatabase();
   latest.sessionUserId = account.user.id;
@@ -104,15 +77,8 @@ export async function mockSignup(input: SignupInput): Promise<AuthResponse> {
   await seededDatabase();
   const postcode = normalizePostcode(input.postcode);
   const email = input.email.trim().toLowerCase();
-  if (
-    !input.name.trim() ||
-    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
-    input.password.length < 8
-  )
-    throw new ApiError(
-      "Check your name, email, and password (at least 8 characters).",
-      422,
-    );
+  if (!input.name.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+    throw new ApiError("Check your name and email address.", 422);
   if (!isPostcodeFormat(postcode))
     throw new ApiError("Enter a UK postcode in the correct format.", 422, {
       postcode: "Try a format like EH3 9GD.",
@@ -131,8 +97,6 @@ export async function mockSignup(input: SignupInput): Promise<AuthResponse> {
       409,
       { email: "This email is already registered." },
     );
-  const salt = crypto.randomUUID();
-  const passwordHash = await hashPassword(input.password, salt);
   const latest = readDatabase();
   if (latest.accounts.some((a) => a.user.email === email))
     throw new ApiError("This email is already registered.", 409);
@@ -143,7 +107,7 @@ export async function mockSignup(input: SignupInput): Promise<AuthResponse> {
     postcode,
     communityId: community.id,
   };
-  latest.accounts.push({ user, salt, passwordHash });
+  latest.accounts.push({ user });
   latest.sessionUserId = user.id;
   writeDatabase(latest);
   return { user };

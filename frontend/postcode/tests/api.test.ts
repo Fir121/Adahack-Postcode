@@ -18,7 +18,7 @@ import {
   getCurrentUser,
   logout,
   PROFILE_KEY,
-  selectDevelopmentProfile,
+  login,
   signup,
 } from "../lib/api/auth";
 import { adaptCoordinates, adaptTask, adaptUser } from "../lib/api/adapters";
@@ -87,10 +87,10 @@ test("Swagger list/detail endpoints adapt actual fields and leave missing scores
     assert.equal((await getCommunity("eh9-1ab")).postcode, coordinate.postcode);
     assert.deepEqual(await getSupportedPostcodes(), ["EH9 1AB"]);
     assert.equal((await getTasks())[0].points, 1);
-    assert.equal((await getTask("1")).completionAvailable, false);
+    assert.equal((await getTask("1")).completionAvailable, true);
     assert.equal((await getUsers())[0].communityId, "eh9-1ab");
     assert.equal((await getUser("test-user")).id, "test-user");
-    await selectDevelopmentProfile("test-user");
+    await login({ email: user.email });
     assert.equal(localStorage.getItem(PROFILE_KEY), "test-user");
     assert.equal((await getCurrentUser())?.postcode, "EH9 1AB");
     await logout();
@@ -117,6 +117,7 @@ test("user writes send only Swagger fields and reject unsupported postcodes befo
     "fetch",
     async (url: string, options: RequestInit) => {
       if (url.endsWith("/coordinates/")) return Response.json([coordinate]);
+      if (url.endsWith("/users") && !options.method) return Response.json([]);
       writes.push(options.method!);
       if (options.method === "DELETE")
         return new Response(null, { status: 200 });

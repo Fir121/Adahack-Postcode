@@ -11,7 +11,6 @@ export interface AuthResponse {
 }
 export interface LoginInput {
   email: string;
-  password: string;
 }
 export interface SignupInput extends LoginInput {
   name: string;
@@ -120,7 +119,9 @@ export interface TaskCompletion {
   category: string;
   targetIndicators: string[];
   completedAt: string;
-  status: "pending" | "approved" | "rejected";
+  activityDate?: string;
+  points?: number;
+  status: "pending" | "approved" | "rejected" | "recorded";
   proofStatus?: "pending" | "approved" | "rejected";
 }
 export interface CompletionInput {
@@ -135,7 +136,6 @@ export interface CompletionResponse {
 }
 export interface DemoInfo {
   email: string;
-  password: string;
   postcode: string;
 }
 
@@ -149,5 +149,5 @@ export interface CommunityLeaderboard {
   postcode: string;
   entries: LeaderboardEntry[];
   available: boolean;
-  source: "api" | "mock";
+  source: "api" | "mock" | "activities";
 }

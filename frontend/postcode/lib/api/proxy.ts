@@ -13,7 +13,14 @@ export async function proxyApiRequest(
     resource === "postcodes" &&
     isPostcodeFormat(id ?? "") &&
     segments[2] === "leaderboard";
+  const activities =
+    resource === "activities" &&
+    segments.length === 2 &&
+    Boolean(id) &&
+    ![".", ".."].includes(id) &&
+    ["GET", "POST", "PUT", "DELETE"].includes(request.method);
   const allowed =
+    activities ||
     leaderboard ||
     (segments.length <= 2 &&
       segments.length >= 1 &&
@@ -36,20 +43,32 @@ export async function proxyApiRequest(
     segments.map(encodeURIComponent).join("/") +
     (resource === "coordinates" && !id ? "/" : "");
   try {
-    const response = await fetch(upstream + "/" + path, {
-      method: request.method,
-      headers: {
-        Accept: "application/json",
-        "ngrok-skip-browser-warning": "true",
-        ...(!read && request.method !== "DELETE"
-          ? { "Content-Type": "application/json" }
-          : {}),
+    const query = new URLSearchParams();
+    const incoming = new URL(request.url).searchParams;
+    const filter =
+      activities &&
+      (read ? "date" : request.method === "DELETE" ? "task_id" : undefined);
+    if (filter && incoming.has(filter))
+      query.set(filter, incoming.get(filter)!);
+    const response = await fetch(
+      upstream + "/" + path + (query.size ? "?" + query.toString() : ""),
+      {
+        method: request.method,
+        headers: {
+          Accept: "application/json",
+          "ngrok-skip-browser-warning": "true",
+          ...(!read && request.method !== "DELETE"
+            ? { "Content-Type": "application/json" }
+            : {}),
+        },
+        body:
+          read || request.method === "DELETE"
+            ? undefined
+            : await request.text(),
+        cache: "no-store",
+        signal: AbortSignal.timeout(12_000),
       },
-      body:
-        read || request.method === "DELETE" ? undefined : await request.text(),
-      cache: "no-store",
-      signal: AbortSignal.timeout(12_000),
-    });
+    );
     const body = await response.text();
     // Frameworks often return an HTML 404 for routes still under development.
     if (leaderboard && [404, 501].includes(response.status))

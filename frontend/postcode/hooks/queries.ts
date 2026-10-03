@@ -32,10 +32,11 @@ export const useDemoInfo = () =>
     queryFn: getDemoInfo,
     staleTime: Infinity,
   });
-export const useSupportedPostcodes = () =>
+export const useSupportedPostcodes = (enabled = true) =>
   useQuery({
     queryKey: ["supported-postcodes"],
     queryFn: getSupportedPostcodes,
+    enabled,
     staleTime: apiConfig.useMock ? Infinity : 60_000,
   });
 export const useCommunities = () =>
@@ -51,7 +52,7 @@ export const useTasks = () =>
 export const useHistory = (userId: string) =>
   useQuery({
     queryKey: queryKeys.history(userId),
-    queryFn: getCompletionHistory,
+    queryFn: () => getCompletionHistory(userId),
     enabled: Boolean(userId),
   });
 

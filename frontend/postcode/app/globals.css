@@ -278,7 +278,7 @@ select {
 .brand-symbol {
   width: 42px;
   height: 42px;
-  background: var(--color-surface);
+  background: none !important;
   display: grid;
   place-items: center;
   border-radius: 14px 14px 14px 5px;
@@ -2353,19 +2353,6 @@ textarea[aria-invalid="true"] {
   line-height: 1.5;
   margin-bottom: 20px;
 }
-.development-profiles label {
-  display: block;
-  font-weight: 600;
-  margin-bottom: 8px;
-}
-.development-profiles select {
-  width: 100%;
-  padding: 12px;
-  border: 1px solid #d7ddcf;
-  border-radius: 8px;
-  background: white;
-  color: inherit;
-}
 .score-pending {
   gap: 16px;
   align-items: center;
@@ -2378,7 +2365,7 @@ textarea[aria-invalid="true"] {
 /* Community leaderboard */
 .leaderboard-trigger {
   width: 100%;
-  margin: 0 0 20px;
+  margin: 10px 0 20px;
   font-size: 12px;
   gap: 9px;
 }

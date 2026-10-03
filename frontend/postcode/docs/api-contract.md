@@ -1,83 +1,90 @@
 # Our Patch backend integration
 
-The implemented contract is [the supplied Swagger 2.0 spec](backend-swagger.json).
+The implemented transport contract is the [updated Swagger spec](backend-swagger.json).
 Default upstream: https://chivalry-handlebar-hangover.ngrok-free.dev/api/v1.
-Set server environment variable API_BASE_URL to change it. The URL must include /api/v1.
+API_BASE_URL includes /api/v1; browser requests use the same-origin /api/backend proxy.
 
-## Implemented now
+## Connected endpoints
 
-| Endpoint | Frontend use |
+| Endpoint | Application integration |
 | --- | --- |
-| GET /coordinates/ | Map centroids; supported postcode list and signup validation |
-| GET /coordinates/{postcode} | Selected postcode details and map focus |
-| GET /tasks | Action catalogue, names, descriptions and points |
-| GET /tasks/{task_id} | Fresh action details when its dialog opens |
-| GET /users | Development profile selector |
-| GET /users/{user_id} | Selected profile, profile restoration and My Account |
-| POST /users | Create a profile with name, email and supported postcode |
-| PUT /users/{user_id} | Typed service provided; account remains read-only |
-| DELETE /users/{user_id} | Typed service provided; no delete-account UI |
+| GET /coordinates/ | Map centroids and supported signup postcodes |
+| GET /coordinates/{postcode} | Selected postcode details/focus |
+| GET /tasks | Action catalogue, names/descriptions and points |
+| GET /tasks/{task_id} | Fresh details before recording an action |
+| GET /users | Email login lookup, duplicate-email precheck and leaderboard membership |
+| GET /users/{user_id} | Login details, restore saved user, account and activity history |
+| POST /users | Signup with exactly name, email, postcode |
+| PUT /users/{user_id}, DELETE /users/{user_id} | Typed services provided; account profile remains read-only |
+| GET /activities/{user_id} | Personal history; leaderboard point totals |
+| GET /activities/{user_id}?date=YYYY-MM-DD | Check whether an action has already been recorded today |
+| POST /activities/{user_id} | Record an action with exactly task_id and date; use returned points |
+| PUT /activities/{user_id} | Typed update service; edit UI awaits precise activity targeting semantics |
+| DELETE /activities/{user_id}?task_id=... | Typed delete service; always supplies task_id; no ambiguous delete-history UI |
 
-User create/update bodies contain exactly name, email, postcode. Passwords are not sent: the spec does not define authentication. Profile selection stores only the chosen user ID in browser local storage and fetches its current data from GET /users/{user_id}. This is a development convenience, not an authenticated session. A deleted profile clears the browser selection.
+User IDs and postcode path segments are URL encoded (including user IDs that happen to be email addresses). Activity date/task_id filters are preserved by the proxy; unrelated query parameters are not forwarded.
 
-The frontend maps user_id to id and task_id/name to id/title. Postcode membership is derived from the user's postcode, not a backend community ID. Coordinates are latitude/longitude centroids; no polygons or GeoJSON areas are required. Postcodes in detail URLs are normalized and URL encoded. The trailing slash on the coordinate list endpoint is retained upstream.
+## POC email-only login
 
-Coordinates do not contain scores or indicators. API-mode postcode labels therefore use a neutral background and say Pending; Green Score shows pending, environmental indicators and history show unavailable, and activity totals are hidden. The selected postcode retains one full-colour house and one still tree as a visual placeholder. Score-driven shading, saturation, tree counts and animation resume once a genuine community score is supplied. Task points are displayed as defined by the API; they are not treated as a postcode score. Completion and proof controls are not offered without an implementation.
+Login fetches GET /users, finds the entered email case-insensitively after trimming whitespace, then fetches GET /users/{user_id} for fresh profile details. It persists only the selected user ID in browser local storage under the existing key our-patch-development-profile for compatibility. Refresh uses that ID to fetch current details; sign-out clears it. A deleted user clears the selection. No password, token or session API is required for this POC. The former profile dropdown is removed.
 
-## Browser access and errors
+Signup POSTs name, normalized lowercase email and a supported postcode. A duplicate email precheck helps avoid ambiguous login, but the backend should also enforce uniqueness. Multiple users matching the login email produce an explicit error rather than picking an arbitrary identity. Supported postcodes still come from the coordinate endpoint.
 
-The browser calls /api/backend, a Next.js server route limited to the three Swagger resources and their documented methods, plus the proposed read-only leaderboard route. It forwards to API_BASE_URL, sends ngrok-skip-browser-warning, disables response caching and retains upstream JSON/status codes. This avoids both the ngrok browser warning and the currently absent CORS headers. Network failures and non-JSON tunnel responses return an actionable 502 error; the client has a 15-second timeout. There is no silent mock fallback.
+Mock mode also uses email-only login/signup. Legacy browser database fields remain readable for compatibility, but passwords are no longer collected, hashed or checked. Mock mode's selected-user field contains only a user ID.
 
-NEXT_PUBLIC_API_BASE_URL is an optional direct browser URL override. If using it, the backend must provide browser CORS headers and handle ngrok warnings as appropriate. The default proxy is for the current unauthenticated contract; cookie/token forwarding and authorization must be implemented with the future authentication contract.
+## Activity recording and history
 
-NEXT_PUBLIC_USE_MOCK_API=true explicitly selects the original local demo. Default is false. Public configuration changes require a restart/rebuild.
+The activity DTO is task_id, user_id, date (YYYY-MM-DD), points. Recording sends only task_id and date to POST /activities/{user_id}. No client points or proof are submitted. The resulting activity supplies authoritative awarded points.
 
-## Still required for the full dynamic app
+Until task metadata defines repeat rules, the POC allows each action once per London calendar day. The UI disables already-recorded actions for today, and the service checks GET activities before POSTing. This is a POC convention; backend uniqueness/idempotency must enforce it across tabs/retries. Daily rules must be agreed rather than inferred from the date field alone.
 
-The following are proposed paths, not implemented endpoints:
+Activities display as **recorded**, not approved: the schema has no approval/proof status. The confirmation checkbox is a local self-report, not backend proof verification. History joins activities with tasks for names, dates and points; a task missing from the current catalogue is shown as Action {task_id}. Activity dates use noon UTC internally only for date formatting across UK timezone changes; they are not actual event timestamps. Display keys are synthetic because the API does not provide activity IDs.
 
-| Capability | Suggested endpoint | Required contract |
-| --- | --- | --- |
-| Secure signup/sign-in/session | POST /auth/signup, POST /auth/login, POST /auth/logout, GET /users/me | Credentials or chosen auth provider, session/token behavior, expiry, current user, field errors, authorization of user resources |
-| Community progress | GET /postcodes/{postcode}/progress | Green Score and its scale/max, authoritative scoring rules, monthly change, total actions, activity by indicator and community statistics |
-| Map-wide scores | Extend GET /coordinates/ or provide GET /postcodes/progress | Score keyed by postcode so unselected labels can also be coloured; nullable/missing scores must stay distinguishable from zero |
-| Environmental indicators | GET /postcodes/{postcode}/indicators | Indicator IDs/types, labels, values/units, normalized scores/status, trends, source, update time, measured/derived provenance and coverage |
-| Submit a contribution | POST /completions | Authenticated user, task/postcode, task-specific text/declaration/photo proof, pending/approved/rejected status; server enforces supported membership and repeat rules |
-| Personal history | GET /completions (authenticated current user) | Completion IDs, task ID/title, postcode, submitted time, review/proof status; do not trust a client-supplied user ID for access control |
-| Proof uploads/review | Multipart /completions or dedicated upload endpoint | Accepted media types, size limits, storage/upload behavior, verification/review lifecycle and validation errors |
+Recording invalidates history and leaderboard queries. It does not fabricate a community score: coordinate labels remain neutral/pending, the selected postcode has one full-colour still house and one still tree, and environmental indicators/statistics stay unavailable. Activity points alone do not specify the community Green Score scale or calculation.
 
-An approved completion should return the saved completion and updated community progress (or provide a reliable refetch), so all scores/map labels and history can synchronize. Define how task points accumulate into a 0–100 Green Score, score caps/period resets, daily timezone and repeat limits; the frontend must not invent that rule. Pending/rejected contributions should not award progress.
+## Live community leaderboard
 
-Extend existing task responses with target indicator IDs, category, estimated time, effort, repeat policy and proof requirements (type, label, required flag, text minimum length, image type/size limits). Those fields enable meaningful recommendations, daily/one-off eligibility and the existing proof UI. They do not require a separate task endpoint.
+The prepared GET /postcodes/{postcode}/leaderboard is not in the supplied spec. On 404/501, the app now fetches GET /users, filters current members by postcode, and fetches their activities to sum real points. At most four member requests run concurrently. All member requests must succeed: a partial response is not shown as a complete ranking.
 
-Backend user creation/update must also enforce supported postcodes, unique/valid emails and structured field errors. If the lottery membership badge should reflect verified membership, add that status to the user response; the current schema only supplies name, email and postcode. Community statistics should include explicit units and scope/period (e.g. monthly versus all-time). If the coordinate collection grows substantially, add viewport/bounds or postcode-search filtering with pagination.
+This provides a working leaderboard with the existing API, including the current user's highlighted row, zero-point members and competition ties (1, 1, 3). Scope is all recorded activities/all-time. Because activity records have no postcode, users are grouped by their **current** profile postcode; historic points follow a profile change. A dedicated aggregate response would be more efficient and could preserve historical community attribution.
 
-## Live observations and verification
-
-Read-only checks on 3 October 2026 returned 513 coordinate records, eight tasks and one user profile. The existing profile's postcode EH9 1AB is supported. EH3 9GD returned 404, so it remains available only in explicit mock mode until the backend supplies it. No live users were created, edited or deleted during verification.
-
-Contract tests exercise the exact Swagger DTOs, all user service methods against fixtures, missing fields, escaping, unsupported-postcode rejection, unavailable features, proxy allowlisting and errors. Browser tests exercise API-driven selection, refresh, map focus, task detail, signup payloads, error retry and icon metadata. The optional live browser smoke uses GET requests only.
-
-## Community leaderboard (proposed endpoint)
-
-The sidebar's **My community leaderboard** button always opens the current user's own postcode, including while they explore a neighbouring postcode. Opening the dialog loads fresh rankings, including when it is closed and reopened. Rankings are invalidated after a contribution is submitted. User identity is matched by user_id, not by name.
-
-Implement GET /api/v1/postcodes/{postcode}/leaderboard (postcode is URL encoded):
-
+The existing optional dedicated response adapter accepts:
 ```json
 {
   "postcode": "EH9 1AB",
   "entries": [
-    { "user_id": "neighbour-1", "name": "Jamie", "rank": 1, "points": 12 },
+    { "user_id": "member-1", "name": "Jamie", "rank": 1, "points": 12 },
     { "user_id": "current-user-id", "name": "Alex", "rank": 2, "points": 8 }
   ]
 }
 ```
+If implemented, it is preferred automatically. Return all members including the current user, with stable user IDs, names, positive integer ranks and nonnegative integer points. Failed/invalid responses surface errors; there is no fake live data fallback. The sidebar button always opens the signed-in user's home postcode, even while exploring neighbours.
 
-Return the full community leaderboard, including the current user and zero-point members, with stable user IDs, nonempty names, nonnegative integer points and positive integer ranks. The postcode must match the requested community. Rank and points are authoritative backend values: sort by points descending, equal totals share competition ranks (e.g. 1, 1, 3). Points are approved individual contributions to that community, separate from its Green Score. Initial scope is all-time; define the points period explicitly before changing it. Do not include email addresses or unrelated profile details.
+## Pending APIs/data
 
-The frontend displays Rank / Name / Points, highlights the current user's row and summarizes their rank/points. If the member is absent from the response it says their position is unavailable; it does not invent a rank. Empty successful responses have a distinct empty state. HTTP 404/501 show a coming-soon state; other errors offer retry. There is no live fallback to fabricated rankings. The same-origin proxy permits only this extra GET route, in addition to the existing Swagger resources.
+| Capability | Missing API/data |
+| --- | --- |
+| Community Green Score | GET /postcodes/{postcode}/progress with score, scale/max, authoritative formula, caps/period, monthly change |
+| Scores across map labels | Scores keyed by postcode in the coordinate list or GET /postcodes/progress |
+| Environmental indicators | GET /postcodes/{postcode}/indicators with values/units, status, trends, sources, timestamps and provenance |
+| Community statistics | Backend-scoped totals/statistics, period and units; can share the progress endpoint |
+| Proof upload/verification | Text/photo/QR support, allowed types/sizes, storage and verification/review statuses; current ActivityInput has no proof fields |
+| Task rules/recommendations | Add category, effort/time, target indicator IDs, daily/one-off repeat policy and proof requirements to existing task responses |
+| Efficient authoritative leaderboard (optional) | GET /postcodes/{postcode}/leaderboard; current implementation already works via users + activities |
+| Precise activity editing/deletion | Stable activity_id or explicit (user, task, original date) identity and documented PUT/DELETE semantics |
 
-Once authentication is implemented, enforce community access/membership on the backend using the authenticated identity. Return 401/403 for denied access. If pagination is added later, include the current user's ranking separately so they can still see their position outside the first page; the current UI contract expects all members.
+Authentication/session APIs are deliberately outside this POC scope, not a blocker or pending requirement.
 
-In mock mode rankings use actual saved browser-local profiles from the user's community and their approved completions, including the existing seeded demo history. Each approved demo action is one point; pending/rejected actions and other postcodes do not count. No fictional neighbours are added.
+## Backend limitations to resolve
+
+1. Activity has no unique ID. DELETE is filtered only by task_id and PUT has no activity ID/original-date selector; it is unclear how either selects one occurrence when tasks recur on multiple dates. Services are connected, but edit/delete UI waits for that definition.
+2. Document/enforce the repeat policy and uniqueness of (user_id, task_id, date) or provide an idempotency key. A client GET-before-POST cannot prevent races across tabs/network retries.
+3. Activities lack proof/status, completion timestamps, task-title snapshots and postcode attribution. The app does not claim actions have been verified; historical names and community membership are inferred from current task/user data.
+4. Enforce case-insensitive email uniqueness and supported postcodes on POST/PUT users. Frontend prechecks improve UX but do not define server consistency.
+5. Define community scoring separately from individual activity points. The frontend leaves Green Score pending until this is supplied.
+
+## Browser access and verification
+
+The proxy forwards only Swagger resources/methods plus the optional leaderboard GET, supplies ngrok-skip-browser-warning, disables response caching, and keeps upstream JSON status/errors. Framework HTML 404/501 from the optional leaderboard becomes JSON so activity aggregation can proceed. API and tunnel failures remain visible. NEXT_PUBLIC_API_BASE_URL optionally bypasses the proxy, requiring browser CORS. NEXT_PUBLIC_USE_MOCK_API=true enables the browser-local demo; public env changes need a restart/rebuild.
+
+Read-only live checks confirmed users/tasks/activity list responses on 3 October 2026. Live users and activities were not created, edited or deleted during testing. Unit/contract tests exercise CRUD payloads, date filtering, scoped identity, duplicate recording, email lookup and leaderboard aggregation; browser fixtures exercise POST recording and signup safely. The optional live browser smoke uses GETs only.

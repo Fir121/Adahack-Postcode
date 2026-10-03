@@ -7,23 +7,35 @@ import type {
 } from "@/types/domain";
 import { apiConfig } from "./config";
 import { ApiError } from "./client";
-import { createUser, getUser } from "./users";
+import { createUser, getUser, getUsers } from "./users";
 
 export const PROFILE_KEY = "our-patch-development-profile";
-export async function selectDevelopmentProfile(
-  id: string,
-): Promise<AuthResponse> {
-  const user = await getUser(id);
-  localStorage.setItem(PROFILE_KEY, user.id);
-  return { user };
-}
 export async function login(input: LoginInput): Promise<AuthResponse> {
   if (apiConfig.useMock)
     return (await import("@/lib/mock/backend")).mockLogin(input);
-  throw new ApiError(
-    "Password sign-in is not available yet. Choose a development profile.",
-    501,
+  const email = input.email.trim().toLowerCase();
+  const matches = (await getUsers()).filter(
+    (user) => user.email.trim().toLowerCase() === email,
   );
+  if (!matches.length)
+    throw new ApiError(
+      "No account was found for that email. Join us to create one.",
+      404,
+      { email: "No account found for this email." },
+    );
+  if (matches.length > 1)
+    throw new ApiError(
+      "More than one user has this email. Please use a unique email or ask for the duplicate records to be corrected.",
+      409,
+    );
+  const user = await getUser(matches[0].id);
+  if (user.email.trim().toLowerCase() !== email)
+    throw new ApiError(
+      "The user details changed. Please try signing in again.",
+      409,
+    );
+  localStorage.setItem(PROFILE_KEY, user.id);
+  return { user };
 }
 export async function signup(input: SignupInput): Promise<AuthResponse> {
   if (apiConfig.useMock)

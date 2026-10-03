@@ -27,3 +27,12 @@ export interface CommunityLeaderboardDto {
   postcode: string;
   entries: { user_id: string; name: string; rank: number; points: number }[];
 }
+
+export interface ActivityInputDto {
+  task_id: string;
+  date: string;
+}
+export interface ActivityDto extends ActivityInputDto {
+  user_id: string;
+  points: number;
+}

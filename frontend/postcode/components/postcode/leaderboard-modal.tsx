@@ -145,6 +145,12 @@ export function LeaderboardModal({
           </div>
         </>
       )}
+      {leaderboard.data?.source === "activities" && (
+        <p className="leaderboard-demo-note">
+          Points come from recorded activities of patch members currently in{" "}
+          {user.postcode}.
+        </p>
+      )}
       {leaderboard.data?.source === "mock" && (
         <p className="leaderboard-demo-note">
           Demo rankings use profiles and approved actions saved in this browser.

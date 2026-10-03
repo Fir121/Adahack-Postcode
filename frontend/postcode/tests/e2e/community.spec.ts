@@ -184,7 +184,7 @@ test("Resprite house and trees play source frames and respect reduced motion", a
     .toBe(1);
 });
 
-test("protected routes redirect, credentials validate, and sessions survive refresh", async ({
+test("protected routes redirect, email-only login validates, and selected users survive refresh", async ({
   page,
 }) => {
   await page.goto("/account");
@@ -193,10 +193,11 @@ test("protected routes redirect, credentials validate, and sessions survive refr
     "background-color",
     "rgb(227, 0, 39)",
   );
-  await page.getByLabel("Email address").fill("demo@greentogether.test");
-  await page.getByLabel("Password", { exact: true }).fill("incorrect");
+  await page.getByLabel("Email address").fill("missing@example.test");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await expect(page.getByRole("alert").first()).toContainText("don't match");
+  await expect(page.getByRole("alert").first()).toContainText(
+    "No account was found",
+  );
   await page.getByRole("button", { name: "Try the demo", exact: true }).click();
   await expect(page).toHaveURL("/");
   await page.reload();
@@ -347,7 +348,6 @@ test("signup restricts supported postcodes and text/photo proof validates", asyn
   await page.getByLabel("Your name").fill("Jamie Meadow");
   await page.getByLabel("Email address").fill("jamie@example.test");
   await page.getByLabel("Your postcode").fill("SW1A 1AA");
-  await page.getByLabel("Password", { exact: true }).fill("LovelyNeighbour1!");
   await page.getByRole("button", { name: "Let's grow together" }).click();
   await expect(
     page.getByText("Choose a supported postcode listed below."),

@@ -123,18 +123,16 @@ test("formatting and existence validation remain separate", async () => {
     mockSignup({
       name: "Sam",
       email: "sam@example.test",
-      password: "password123",
       postcode: "SW1A 1AA",
     }),
     /isn't part of the demo/,
   );
 });
 
-test("signup persists a session without storing plaintext passwords", async () => {
+test("email-only signup persists the selected user without storing passwords", async () => {
   const result = await mockSignup({
     name: "Sam",
     email: "sam@example.test",
-    password: "password123",
     postcode: "eh39gd",
   });
   assert.equal((await mockCurrentUser())?.id, result.user.id);
@@ -142,11 +140,11 @@ test("signup persists a session without storing plaintext passwords", async () =
   await mockLogout();
   assert.equal(await mockCurrentUser(), null);
   await assert.rejects(
-    mockLogin({ email: "sam@example.test", password: "wrong" }),
-    /don't match/,
+    mockLogin({ email: "missing@example.test" }),
+    /No account/,
   );
   assert.equal(
-    (await mockLogin({ email: "sam@example.test", password: "password123" }))
+    (await mockLogin({ email: "sam@example.test" }))
       .user.id,
     result.user.id,
   );
@@ -296,7 +294,7 @@ test("real client sends cookies and preserves validation errors and unavailable 
   await assert.rejects(apiRequest("/tasks"), /couldn't reach the API/);
 });
 
-test("development profiles clear a deleted selection; unsupported completions never call the API", async (t) => {
+test("email login clears a deleted selection; signed-out activity recording is rejected", async (t) => {
   const previous = apiConfig.useMock;
   apiConfig.useMock = false;
   try {
@@ -313,7 +311,7 @@ test("development profiles clear a deleted selection; unsupported completions ne
     assert.equal(localStorage.getItem("our-patch-development-profile"), null);
     await assert.rejects(
       completeTask({ taskId: "1", communityId: "eh9-1ab", proof: {} }),
-      /not available yet/,
+      /Sign in to record/,
     );
     assert.equal(calls, 1);
   } finally {

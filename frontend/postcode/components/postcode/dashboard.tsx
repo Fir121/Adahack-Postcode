@@ -216,14 +216,18 @@ export function Dashboard() {
               </span>
               <div>
                 <strong>
-                  {feedback.completion.status === "approved"
-                    ? "A little greener, together."
-                    : "Your action is awaiting review."}
+                  {feedback.completion.status === "recorded"
+                    ? "Your action has been recorded."
+                    : feedback.completion.status === "approved"
+                      ? "A little greener, together."
+                      : "Your action is awaiting review."}
                 </strong>
                 <span>
-                  {feedback.completion.status === "approved"
-                    ? `Your community has ${feedback.progress.totalActions} actions this month.`
-                    : "Check your account for its status."}
+                  {feedback.completion.status === "recorded"
+                    ? `${feedback.completion.points ?? 0} ${feedback.completion.points === 1 ? "point" : "points"} added to your recorded activities.`
+                    : feedback.completion.status === "approved"
+                      ? `Your community has ${feedback.progress.totalActions} actions this month.`
+                      : "Check your account for its status."}
                 </span>
               </div>
               <button

@@ -15,13 +15,28 @@ async function validatedInput(input: UserInputDto): Promise<UserInputDto> {
     throw new ApiError("Choose a supported postcode.", 400, {
       postcode: "This postcode is not available yet.",
     });
-  return { name: input.name.trim(), email: input.email.trim(), postcode };
+  return {
+    name: input.name.trim(),
+    email: input.email.trim().toLowerCase(),
+    postcode,
+  };
 }
 export async function createUser(input: UserInputDto) {
+  const payload = await validatedInput(input);
+  if (
+    (await getUsers()).some(
+      (user) => user.email.trim().toLowerCase() === payload.email,
+    )
+  )
+    throw new ApiError(
+      "This email already has an account. Sign in instead.",
+      409,
+      { email: "This email is already registered." },
+    );
   return adaptUser(
     await apiRequest<UserDto>(endpoints.users, {
       method: "POST",
-      body: JSON.stringify(await validatedInput(input)),
+      body: JSON.stringify(payload),
     }),
   );
 }

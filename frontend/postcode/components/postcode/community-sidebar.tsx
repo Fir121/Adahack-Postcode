@@ -60,12 +60,6 @@ export function CommunitySidebar(props: SidebarProps) {
         <span className="eyebrow">
           <MapPin size={13} /> {own ? "YOUR POSTCODE" : "MEET THE NEIGHBOURS"}
         </span>
-        <span className="live-tag">
-          <span />{" "}
-          {community.indicators.some((i) => i.provenance === "mock")
-            ? "Demo"
-            : "Community"}
-        </span>
       </div>
       <div className="sidebar-identity">
         <h2>{community.postcode}</h2>
@@ -154,7 +148,7 @@ export function CommunitySidebar(props: SidebarProps) {
               <Sprout size={30} />
               <div>
                 <strong>Green Score pending</strong>
-                <p>Community scores aren’t available yet.</p>
+                <p>Community scores aren&apos;t available yet.</p>
               </div>
             </div>
           ) : (
@@ -164,7 +158,7 @@ export function CommunitySidebar(props: SidebarProps) {
             />
           )}
           <div className="indicator-heading">
-            <h3>How&apos;s your neighbourhood?</h3>
+            <h3>How&apos;s your postcode?</h3>
             <span title="Environmental data and community contributions are tracked separately">
               <Info size={15} />
             </span>
@@ -206,7 +200,7 @@ export function CommunitySidebar(props: SidebarProps) {
           )}
           <div className="focus-card">
             <div className="focus-card-top">
-              <span className="eyebrow">TODAY&apos;S LITTLE GOOD THING</span>
+              <span className="eyebrow">TODAY&apos;S LITTLE ACTION</span>
               <span className="focus-flower">
                 <Sprout size={19} />
               </span>
@@ -319,10 +313,6 @@ export function CommunitySidebar(props: SidebarProps) {
           )}
         </>
       )}
-      <p className="sidebar-footnote">
-        Your actions grow community progress. Environmental measurements update
-        from their sources.
-      </p>
     </>
   );
 }

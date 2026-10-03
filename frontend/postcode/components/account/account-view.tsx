@@ -106,11 +106,7 @@ export function AccountView() {
             disabled={mutation.isPending}
           >
             <LogOut size={16} />{" "}
-            {mutation.isPending
-              ? "Please wait…"
-              : apiConfig.useMock
-                ? "Sign out"
-                : "Switch profile"}
+            {mutation.isPending ? "Please wait…" : "Sign out"}
           </button>
           {apiConfig.useMock && (
             <div className="reset-section">
@@ -158,19 +154,12 @@ export function AccountView() {
               <span className="eyebrow">GOOD THINGS YOU&apos;VE DONE</span>
               <h2>Your action history</h2>
             </div>
-            <span className="history-count">
-              {apiConfig.useMock ? (history.data?.length ?? "—") : "—"}
-            </span>
+            <span className="history-count">{history.data?.length ?? "—"}</span>
           </div>
           <p className="muted">
             Each action is a little contribution to your postcode.
           </p>
-          {!apiConfig.useMock ? (
-            <p className="empty-note">
-              Action history isn’t available yet. It will appear here once the
-              completion API is ready.
-            </p>
-          ) : history.isPending ? (
+          {history.isPending ? (
             <LoadingState message="Gathering your contributions…" />
           ) : history.isError ? (
             <ErrorState
@@ -216,11 +205,15 @@ export function AccountView() {
                         : "Previous community"}
                     </p>
                     <span className="completion-status">
-                      {completion.status === "approved"
-                        ? "Contribution approved"
-                        : completion.status === "pending"
-                          ? "Awaiting review"
-                          : "Not approved"}
+                      {completion.status === "recorded"
+                        ? "Action recorded"
+                        : completion.status === "approved"
+                          ? "Contribution approved"
+                          : completion.status === "pending"
+                            ? "Awaiting review"
+                            : "Not approved"}
+                      {completion.points !== undefined &&
+                        ` · ${completion.points} ${completion.points === 1 ? "point" : "points"}`}
                       {completion.proofStatus &&
                         ` · Proof ${completion.proofStatus}`}
                     </span>

@@ -16,7 +16,7 @@ import { completeTask } from "@/lib/api/completions";
 import { ApiError } from "@/lib/api/client";
 import { apiConfig } from "@/lib/api/config";
 import { validateProof } from "@/lib/tasks";
-import { errorMessage } from "@/lib/utils";
+import { dateLabel, dayKey, errorMessage } from "@/lib/utils";
 import { useTask } from "@/hooks/queries";
 import { ErrorState, LoadingState, IndicatorIcon } from "@/components/ui";
 
@@ -33,7 +33,7 @@ export function CompletionModal({
   onClose: () => void;
   onComplete: (result: CompletionResponse) => Promise<void>;
 }) {
-  const details = useTask(task.id, task.completionAvailable === false);
+  const details = useTask(task.id, !apiConfig.useMock);
   const dialog = useRef<HTMLDialogElement>(null);
   const [proof, setProof] = useState<TaskProof>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -94,37 +94,87 @@ export function CompletionModal({
       >
         <X size={20} />
       </button>
-      {task.completionAvailable === false ? (
-        <>
-          <span className="task-category">Community action</span>
-          <h2 id="task-modal-title">{details.data?.title ?? task.title}</h2>
-          {details.isPending ? (
-            <LoadingState message="Loading action details…" />
-          ) : details.isError ? (
-            <ErrorState
-              message={errorMessage(details.error)}
-              retry={() => {
-                void details.refetch();
-              }}
-            />
-          ) : (
-            <>
-              <p className="modal-description">{details.data.description}</p>
-              <p className="task-meta">
-                {details.data.points}{" "}
-                {details.data.points === 1 ? "point" : "points"}
-              </p>
-              <p className="empty-note">
-                Action completion and proof submission aren’t available yet. You
-                can explore the actions while this part of the app is being
-                built.
-              </p>
-            </>
-          )}
-          <button className="button button-secondary" onClick={onClose}>
-            Back to my neighbourhood <ArrowRight size={17} />
-          </button>
-        </>
+      {!apiConfig.useMock ? (
+        mutation.isSuccess ? (
+          <div className="completion-success">
+            <span className="success-sprout">
+              <Check size={36} />
+            </span>
+            <h2 id="task-modal-title">Action recorded.</h2>
+            <p>
+              {task.title} · {dateLabel(mutation.data.completion.completedAt)}
+            </p>
+            <div className="success-summary">
+              <strong>
+                {mutation.data.completion.points}{" "}
+                {mutation.data.completion.points === 1 ? "point" : "points"}
+              </strong>
+            </div>
+            <p className="muted">
+              Your action is saved in your history and included in your
+              community leaderboard.
+            </p>
+            <button className="button button-primary" onClick={onClose}>
+              Back to my neighbourhood <ArrowRight size={17} />
+            </button>
+          </div>
+        ) : (
+          <>
+            <span className="task-category">Community action</span>
+            <h2 id="task-modal-title">{details.data?.title ?? task.title}</h2>
+            {details.isPending ? (
+              <LoadingState message="Loading action details…" />
+            ) : details.isError ? (
+              <ErrorState
+                message={errorMessage(details.error)}
+                retry={() => {
+                  void details.refetch();
+                }}
+              />
+            ) : (
+              <>
+                <p className="modal-description">{details.data.description}</p>
+                <p className="task-meta">
+                  {details.data.points}{" "}
+                  {details.data.points === 1 ? "point" : "points"}
+                </p>
+                <form onSubmit={submit} noValidate>
+                  <h3>Done your good thing?</h3>
+                  <p className="muted">
+                    Record this action for{" "}
+                    {dateLabel(dayKey(new Date()) + "T12:00:00Z")}.
+                  </p>
+                  <label className="checkbox-label proof-field">
+                    <input
+                      type="checkbox"
+                      checked={proof.declaration ?? false}
+                      disabled={mutation.isPending}
+                      onChange={(event) =>
+                        setProof({ declaration: event.target.checked })
+                      }
+                    />
+                    I have completed this action
+                  </label>
+                  {mutation.isError && (
+                    <p className="form-error" role="alert">
+                      {errorMessage(mutation.error)}
+                    </p>
+                  )}
+                  <button
+                    className="button button-primary"
+                    disabled={mutation.isPending || !proof.declaration}
+                    type="submit"
+                  >
+                    {mutation.isPending
+                      ? "Recording your action…"
+                      : "Record action"}{" "}
+                    <ArrowRight size={17} />
+                  </button>
+                </form>
+              </>
+            )}
+          </>
+        )
       ) : mutation.isSuccess ? (
         <div className="completion-success">
           <span className="success-sprout">

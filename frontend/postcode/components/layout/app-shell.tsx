@@ -16,7 +16,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (user.isSuccess && !user.data) router.replace("/login");
   }, [user.isSuccess, user.data, router]);
   if (user.isPending || (user.isSuccess && !user.data))
-    return <LoadingState message="Checking your session…" />;
+    return <LoadingState message="Loading your profile…" />;
   if (user.isError)
     return (
       <ErrorState

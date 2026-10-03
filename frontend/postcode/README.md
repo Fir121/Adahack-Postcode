@@ -12,13 +12,13 @@ cp .env.example .env.local
 pnpm dev
 ```
 
-Open http://localhost:3000. The default mode calls the supplied development API through a same-origin server proxy. Select an existing **development profile**, or create a profile using a postcode supplied by the API. Password authentication, scores, indicators and task completion are pending backend work; the UI identifies these as unavailable.
+Open http://localhost:3000. The default mode calls the supplied development API through a same-origin server proxy. Sign in with your email, or create a user with name, email and a postcode supplied by the API. No password is used for this POC. Recorded actions, history and leaderboard points use the live activities API; Green Scores and environmental indicators remain pending.
 
 The root Icon.png is used unchanged for the header logo, browser favicon, Apple touch icon and app manifest.
 
 For the original interactive mock demo, set NEXT_PUBLIC_USE_MOCK_API=true and restart/rebuild. Click **Try the demo** or sign up with a supported demo postcode.
 
-Demo account: `demo@greentogether.test` / `GreenTogether!`.
+Demo email: `demo@greentogether.test` (no password).
 
 Supported demo postcodes: **EH3 9GD**, **EH3 9FG**, **EH8 9LJ**. All are explorable; actions contribute only to your account's community.
 
@@ -30,7 +30,7 @@ Supported demo postcodes: **EH3 9GD**, **EH3 9FG**, **EH8 9LJ**. All are explora
 4. Open the recommended action or browse all actions.
 5. Submit declaration, text, photo, or combined proof as required by that task.
 6. Activity and gamified score increase; house saturation and tree count follow the new score. Environmental measurements stay unchanged.
-7. View completion history in My Account. Refreshes preserve mock sessions and progress.
+7. View completion history in My Account. Refreshes preserve the selected user ID and mock progress.
 
 Daily tasks can be completed once per London calendar day; one-off tasks remain completed. Demo proof is immediately approved. Files are validated but not retained in browser storage. Reset demo on the sign-in/account page clears browser-local demo accounts and progress.
 
@@ -44,7 +44,7 @@ The Postcode Lottery navigation item is an external link. This project is indepe
 
 The live Swagger integration is enabled by default. API_BASE_URL configures the server-side upstream and defaults to https://chivalry-handlebar-hangover.ngrok-free.dev/api/v1. Browser requests use /api/backend so the currently missing CORS headers and ngrok interstitial do not prevent access.
 
-Coordinates populate map centroids and supported postcodes; task list/detail endpoints provide actions and points; user list/detail/create endpoints provide development profiles. Typed update/delete services are available, while the account UI remains read-only. Profiles do not constitute password authentication, and missing scores/history/completion are not replaced with demo values.
+Coordinates populate map centroids and supported postcodes; task list/detail endpoints provide actions and points; user list/detail/create endpoints provide POC profiles. Typed update/delete services are available, while the account UI remains read-only. Email login looks up GET /users then GET /users/{user_id}, and persists the selected ID. POST /activities/{user_id} records actions; GET activities powers personal history and leaderboard totals. Missing community scores/indicators remain pending. Activity update/delete services are supplied; precise targeting still needs clarification.
 
 See [the backend contract and remaining endpoints](docs/api-contract.md) for exact mappings, configuration and the additions needed to make the full app dynamic.
 
@@ -65,13 +65,13 @@ See [the backend contract and remaining endpoints](docs/api-contract.md) for exa
 - `public/map-assets/`: supplied house artwork and replaceable placeholder SVGs for other assets.
 - `scripts/copy-maplibre-worker.mjs`: copies MapLibre v6's worker and shared module to `public/maplibre/` before development/build, as required for Turbopack. Generated vendor files are ignored in Git and regenerated from the installed version.
 
-The map is dynamically loaded through a client wrapper. Server layouts remain server components; the authenticated shell checks the current-user query before rendering protected content. React state handles sidebar selection, modal visibility, and mobile drawer state. TanStack Query synchronizes API state and invalidates community/history queries after completion.
+The map is dynamically loaded through a client wrapper. Server layouts remain server components; the selected-user shell checks the current-user query before rendering protected content. React state handles sidebar selection, modal visibility, and mobile drawer state. TanStack Query synchronizes API state and invalidates community/history queries after completion.
 
 ## Community leaderboard
 
 Use **My community leaderboard** in the right sidebar to open your own postcode's Rank / Name / Points table. Your row is highlighted and your rank/points appear above it. The popup works from any sidebar view, supports keyboard dismissal and mobile layouts, and refreshes on opening.
 
-The proposed GET /postcodes/{postcode}/leaderboard endpoint is wired through the API proxy. Until it is implemented, a 404/501 shows “Leaderboard coming soon”; errors have retry and empty successful responses have their own state. Mock mode shows rankings from saved community profiles and approved actions. See [the leaderboard response contract](docs/api-contract.md#community-leaderboard-proposed-endpoint).
+The optional GET /postcodes/{postcode}/leaderboard endpoint is preferred when available. On 404/501, real points are calculated from GET /users and member activities, with up to four concurrent activity requests. Mock mode uses saved profiles and approved demo actions. See [the backend integration contract and remaining work](docs/api-contract.md).
 
 ## Resprite artwork
 

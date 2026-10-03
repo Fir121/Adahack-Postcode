@@ -1,9 +1,11 @@
 import type { CommunityLeaderboardDto } from "@/types/api";
-import type { CommunityLeaderboard } from "@/types/domain";
+import type { CommunityLeaderboard, LeaderboardEntry } from "@/types/domain";
 import { isPostcodeFormat, normalizePostcode } from "@/lib/utils";
 import { apiConfig } from "./config";
 import { apiRequest, ApiError } from "./client";
 import { endpoints } from "./endpoints";
+import { getUsers } from "./users";
+import { getActivities } from "./activities";
 
 export function adaptLeaderboard(
   dto: CommunityLeaderboardDto,
@@ -66,12 +68,55 @@ export async function getCommunityLeaderboard(
   } catch (error) {
     // Missing/not-implemented endpoints are different from an empty, implemented ranking.
     if (error instanceof ApiError && [404, 501].includes(error.status))
-      return {
-        postcode: normalized,
-        entries: [],
-        available: false,
-        source: "api",
-      };
+      return leaderboardFromActivities(normalized);
     throw error;
   }
+}
+
+// Use real records while the dedicated community endpoint is under development.
+async function leaderboardFromActivities(
+  postcode: string,
+): Promise<CommunityLeaderboard> {
+  const members = (await getUsers()).filter(
+    (user) => user.postcode === postcode,
+  );
+  const entries: LeaderboardEntry[] = new Array(members.length);
+  let next = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(4, members.length) }, async () => {
+      while (next < members.length) {
+        const index = next++;
+        const member = members[index];
+        const activities = await getActivities(member.id);
+        const points = activities.reduce(
+          (sum, activity) => sum + activity.points,
+          0,
+        );
+        if (!Number.isSafeInteger(points))
+          throw new ApiError(
+            "Activity points exceed the supported total.",
+            502,
+          );
+        entries[index] = {
+          userId: member.id,
+          name: member.name,
+          rank: 0,
+          points,
+        };
+      }
+    }),
+  );
+  entries.sort(
+    (a, b) =>
+      b.points - a.points ||
+      a.name.localeCompare(b.name) ||
+      a.userId.localeCompare(b.userId),
+  );
+  entries.forEach((entry, index) => {
+    entry.rank =
+      index > 0 && entry.points === entries[index - 1].points
+        ? entries[index - 1].rank
+        : index + 1;
+  });
+  return { postcode, entries, available: true, source: "activities" };
 }
