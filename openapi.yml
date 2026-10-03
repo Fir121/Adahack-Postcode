@@ -12,6 +12,7 @@ tags:
   - name: Users
   - name: Activities
   - name: Tasks
+  - name: Metrics
   - name: Coordinates
 
 paths:
@@ -207,6 +208,50 @@ paths:
                 items:
                   $ref: '#/components/schemas/Task'
 
+  /metrics:
+    get:
+      tags: [Metrics]
+      summary: Get total points for each postcode
+      description: >
+        Returns the total points aggregated over all activities recorded
+        by users in each postcode.
+      operationId: listPostcodeMetrics
+      responses:
+        '200':
+          description: Total points per postcode
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PostcodeMetric'
+
+  /metrics/{postcode}:
+    get:
+      tags: [Metrics]
+      summary: Get users in a postcode with their points
+      description: Returns the users in the postcode, ordered by points (highest first).
+      operationId: getPostcodeUserMetrics
+      parameters:
+        - name: postcode
+          in: path
+          required: true
+          description: Postcode to get user points for (e.g. EH1 1YZ)
+          schema:
+            type: string
+            example: EH1 1YZ
+      responses:
+        '200':
+          description: Users in the postcode, ordered by points descending
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserMetric'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /coordinates:
     get:
       tags: [Coordinates]
@@ -359,6 +404,32 @@ components:
         points:
           type: integer
           example: 10
+
+    PostcodeMetric:
+      type: object
+      required: [postcode, total_points]
+      properties:
+        postcode:
+          type: string
+          example: EH1 1YZ
+        total_points:
+          type: integer
+          example: 250
+
+    UserMetric:
+      type: object
+      required: [user_id, name, points]
+      properties:
+        user_id:
+          type: integer
+          format: int64
+          example: 1
+        name:
+          type: string
+          example: Jane Smith
+        points:
+          type: integer
+          example: 120
 
     Coordinates:
       type: object
