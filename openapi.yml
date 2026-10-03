@@ -99,15 +99,31 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /activities/{user_id}:
-    parameters:
-      - $ref: '#/components/parameters/UserId'
+  /activities:
     get:
       tags: [Activities]
-      summary: Get activities for a user
-      description: Returns the user's activities, optionally filtered to a single date.
-      operationId: listUserActivities
+      summary: Get activities
+      description: >
+        Returns activities, optionally filtered by user, task and/or date.
+        Filters are combined with AND; with no filters, all activities are returned.
+      operationId: listActivities
       parameters:
+        - name: user_id
+          in: query
+          required: false
+          description: Only return activities for this user
+          schema:
+            type: integer
+            format: int64
+            example: 1
+        - name: task_id
+          in: query
+          required: false
+          description: Only return activities for this task
+          schema:
+            type: integer
+            format: int64
+            example: 42
         - name: date
           in: query
           required: false
@@ -124,22 +140,37 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/ActivitySummary'
-        '404':
-          $ref: '#/components/responses/NotFound'
+                  $ref: '#/components/schemas/Activity'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /activities/{date}/{user_id}/{task_id}:
+    parameters:
+      - name: date
+        in: path
+        required: true
+        description: Date of the activity (YYYY-MM-DD)
+        schema:
+          type: string
+          format: date
+          example: '2026-10-03'
+      - $ref: '#/components/parameters/UserId'
+      - name: task_id
+        in: path
+        required: true
+        description: ID of the task
+        schema:
+          type: integer
+          format: int64
+          example: 42
     post:
       tags: [Activities]
-      summary: Record an activity for a user
+      summary: Record an activity
       description: >
-        The user comes from the path. Points are taken from the task.
-        (task_id, user_id) is a joint key, so a duplicate returns 409.
-      operationId: createUserActivity
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ActivityInput'
+        Records that the user completed the task on the date. Points are taken
+        from the task. (user_id, task_id, date) is a joint key, so a duplicate
+        returns 409.
+      operationId: createActivity
       responses:
         '201':
           description: Activity created
@@ -153,40 +184,10 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
-    put:
-      tags: [Activities]
-      summary: Update an activity for a user
-      description: Finds the activity by (task_id, user_id) and updates its date.
-      operationId: updateUserActivity
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ActivityInput'
-      responses:
-        '200':
-          description: Activity updated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Activity'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
     delete:
       tags: [Activities]
-      summary: Delete an activity for a user
-      operationId: deleteUserActivity
-      parameters:
-        - name: task_id
-          in: query
-          required: true
-          description: Task of the activity to delete
-          schema:
-            type: integer
-            format: int64
+      summary: Delete an activity
+      operationId: deleteActivity
       responses:
         '204':
           description: Activity deleted
@@ -339,7 +340,7 @@ components:
 
     Activity:
       type: object
-      description: Keyed by (task_id, user_id).
+      description: Keyed by (user_id, task_id, date).
       required: [task_id, user_id, points, date]
       properties:
         task_id:
@@ -350,35 +351,6 @@ components:
           type: integer
           format: int64
           example: 1
-        points:
-          type: integer
-          example: 10
-        date:
-          type: string
-          format: date
-          example: '2026-10-03'
-
-    ActivityInput:
-      type: object
-      required: [task_id, date]
-      properties:
-        task_id:
-          type: integer
-          format: int64
-          example: 42
-        date:
-          type: string
-          format: date
-          example: '2026-10-03'
-
-    ActivitySummary:
-      type: object
-      required: [task_id, points, date]
-      properties:
-        task_id:
-          type: integer
-          format: int64
-          example: 42
         points:
           type: integer
           example: 10
