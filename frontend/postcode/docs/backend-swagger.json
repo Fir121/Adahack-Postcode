@@ -1,0 +1,752 @@
+{
+    "swagger": "2.0",
+    "basePath": "/api/v1",
+    "paths": {
+        "/activities": {
+            "get": {
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Activity"
+                            }
+                        }
+                    }
+                },
+                "summary": "Get activities with optional filters",
+                "operationId": "get_activities_list_resource",
+                "parameters": [
+                    {
+                        "description": "Filter activities by date (YYYY-MM-DD)",
+                        "name": "date",
+                        "type": "string",
+                        "in": "query"
+                    },
+                    {
+                        "description": "Filter activities by user ID",
+                        "name": "user_id",
+                        "type": "string",
+                        "in": "query"
+                    },
+                    {
+                        "description": "Filter activities by task ID",
+                        "name": "task_id",
+                        "type": "string",
+                        "in": "query"
+                    },
+                    {
+                        "name": "X-Fields",
+                        "in": "header",
+                        "type": "string",
+                        "format": "mask",
+                        "description": "An optional fields mask"
+                    }
+                ],
+                "tags": [
+                    "activities"
+                ]
+            }
+        },
+        "/activities/{date}/{user_id}/{task_id}": {
+            "parameters": [
+                {
+                    "in": "path",
+                    "description": "The task identifier",
+                    "name": "task_id",
+                    "required": true,
+                    "type": "string"
+                },
+                {
+                    "in": "path",
+                    "description": "The user identifier",
+                    "name": "user_id",
+                    "required": true,
+                    "type": "string"
+                },
+                {
+                    "in": "path",
+                    "description": "Date of the activity (YYYY-MM-DD)",
+                    "name": "date",
+                    "required": true,
+                    "type": "string"
+                }
+            ],
+            "put": {
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "schema": {
+                            "$ref": "#/definitions/Activity"
+                        }
+                    }
+                },
+                "summary": "Update an activity",
+                "operationId": "put_activity_resource",
+                "parameters": [
+                    {
+                        "name": "payload",
+                        "required": true,
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/ActivityInput"
+                        }
+                    },
+                    {
+                        "name": "X-Fields",
+                        "in": "header",
+                        "type": "string",
+                        "format": "mask",
+                        "description": "An optional fields mask"
+                    }
+                ],
+                "tags": [
+                    "activities"
+                ]
+            },
+            "post": {
+                "responses": {
+                    "201": {
+                        "description": "Success",
+                        "schema": {
+                            "$ref": "#/definitions/Activity"
+                        }
+                    }
+                },
+                "summary": "Record an activity",
+                "operationId": "post_activity_resource",
+                "parameters": [
+                    {
+                        "name": "payload",
+                        "required": true,
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/ActivityInput"
+                        }
+                    },
+                    {
+                        "name": "X-Fields",
+                        "in": "header",
+                        "type": "string",
+                        "format": "mask",
+                        "description": "An optional fields mask"
+                    }
+                ],
+                "tags": [
+                    "activities"
+                ]
+            },
+            "delete": {
+                "responses": {
+                    "200": {
+                        "description": "Success"
+                    }
+                },
+                "summary": "Delete an activity",
+                "operationId": "delete_activity_resource",
+                "tags": [
+                    "activities"
+                ]
+            }
+        },
+        "/coordinates/": {
+            "get": {
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Coordinates"
+                            }
+                        }
+                    }
+                },
+                "summary": "Get latitude and longitude for all postcodes",
+                "operationId": "list_coordinates",
+                "parameters": [
+                    {
+                        "name": "X-Fields",
+                        "in": "header",
+                        "type": "string",
+                        "format": "mask",
+                        "description": "An optional fields mask"
+                    }
+                ],
+                "tags": [
+                    "coordinates"
+                ]
+            }
+        },
+        "/coordinates/{postcode}": {
+            "parameters": [
+                {
+                    "in": "path",
+                    "description": "Postcode",
+                    "name": "postcode",
+                    "required": true,
+                    "type": "string"
+                }
+            ],
+            "get": {
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "schema": {
+                            "$ref": "#/definitions/Coordinates"
+                        }
+                    },
+                    "404": {
+                        "description": "Postcode not found",
+                        "schema": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid postcode",
+                        "schema": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    }
+                },
+                "summary": "Get latitude and longitude for a single postcode",
+                "operationId": "get_coordinates",
+                "parameters": [
+                    {
+                        "name": "X-Fields",
+                        "in": "header",
+                        "type": "string",
+                        "format": "mask",
+                        "description": "An optional fields mask"
+                    }
+                ],
+                "tags": [
+                    "coordinates"
+                ]
+            }
+        },
+        "/metrics/": {
+            "get": {
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/PostcodeMetric"
+                            }
+                        }
+                    }
+                },
+                "summary": "Get total points for each postcode",
+                "operationId": "get_postcode_metrics_resource",
+                "parameters": [
+                    {
+                        "name": "X-Fields",
+                        "in": "header",
+                        "type": "string",
+                        "format": "mask",
+                        "description": "An optional fields mask"
+                    }
+                ],
+                "tags": [
+                    "metrics"
+                ]
+            }
+        },
+        "/metrics/{postcode}": {
+            "parameters": [
+                {
+                    "in": "path",
+                    "description": "Postcode to get user points for (e.g. EH1 1YZ)",
+                    "name": "postcode",
+                    "required": true,
+                    "type": "string"
+                }
+            ],
+            "get": {
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "schema": {
+                            "$ref": "#/definitions/PostcodeDetailMetric"
+                        }
+                    }
+                },
+                "summary": "Get metrics for a postcode",
+                "operationId": "get_postcode_detail_metrics_resource",
+                "parameters": [
+                    {
+                        "name": "X-Fields",
+                        "in": "header",
+                        "type": "string",
+                        "format": "mask",
+                        "description": "An optional fields mask"
+                    }
+                ],
+                "tags": [
+                    "metrics"
+                ]
+            }
+        },
+        "/tasks": {
+            "get": {
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Task"
+                            }
+                        }
+                    }
+                },
+                "summary": "Get list of tasks",
+                "operationId": "get_task_list_resource",
+                "parameters": [
+                    {
+                        "name": "X-Fields",
+                        "in": "header",
+                        "type": "string",
+                        "format": "mask",
+                        "description": "An optional fields mask"
+                    }
+                ],
+                "tags": [
+                    "tasks"
+                ]
+            }
+        },
+        "/tasks/{task_id}": {
+            "parameters": [
+                {
+                    "in": "path",
+                    "description": "The task identifier",
+                    "name": "task_id",
+                    "required": true,
+                    "type": "string"
+                }
+            ],
+            "get": {
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "schema": {
+                            "$ref": "#/definitions/Task"
+                        }
+                    }
+                },
+                "summary": "Get a single task",
+                "operationId": "get_task_resource",
+                "parameters": [
+                    {
+                        "name": "X-Fields",
+                        "in": "header",
+                        "type": "string",
+                        "format": "mask",
+                        "description": "An optional fields mask"
+                    }
+                ],
+                "tags": [
+                    "tasks"
+                ]
+            }
+        },
+        "/users": {
+            "post": {
+                "responses": {
+                    "201": {
+                        "description": "Success",
+                        "schema": {
+                            "$ref": "#/definitions/User"
+                        }
+                    }
+                },
+                "summary": "Create a user",
+                "operationId": "post_user_list",
+                "parameters": [
+                    {
+                        "name": "payload",
+                        "required": true,
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/UserInput"
+                        }
+                    },
+                    {
+                        "name": "X-Fields",
+                        "in": "header",
+                        "type": "string",
+                        "format": "mask",
+                        "description": "An optional fields mask"
+                    }
+                ],
+                "tags": [
+                    "users"
+                ]
+            },
+            "get": {
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/User"
+                            }
+                        }
+                    }
+                },
+                "summary": "Get list of users with optional filters",
+                "operationId": "get_user_list",
+                "parameters": [
+                    {
+                        "name": "X-Fields",
+                        "in": "header",
+                        "type": "string",
+                        "format": "mask",
+                        "description": "An optional fields mask"
+                    }
+                ],
+                "tags": [
+                    "users"
+                ]
+            }
+        },
+        "/users/{user_id}": {
+            "parameters": [
+                {
+                    "in": "path",
+                    "description": "The user identifier",
+                    "name": "user_id",
+                    "required": true,
+                    "type": "string"
+                }
+            ],
+            "put": {
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "schema": {
+                            "$ref": "#/definitions/User"
+                        }
+                    }
+                },
+                "summary": "Update a user",
+                "operationId": "put_user_resource",
+                "parameters": [
+                    {
+                        "name": "payload",
+                        "required": true,
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/UserInput"
+                        }
+                    },
+                    {
+                        "name": "X-Fields",
+                        "in": "header",
+                        "type": "string",
+                        "format": "mask",
+                        "description": "An optional fields mask"
+                    }
+                ],
+                "tags": [
+                    "users"
+                ]
+            },
+            "get": {
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "schema": {
+                            "$ref": "#/definitions/User"
+                        }
+                    }
+                },
+                "summary": "Get a single user",
+                "operationId": "get_user_resource",
+                "parameters": [
+                    {
+                        "name": "X-Fields",
+                        "in": "header",
+                        "type": "string",
+                        "format": "mask",
+                        "description": "An optional fields mask"
+                    }
+                ],
+                "tags": [
+                    "users"
+                ]
+            },
+            "delete": {
+                "responses": {
+                    "200": {
+                        "description": "Success"
+                    }
+                },
+                "summary": "Delete a user",
+                "operationId": "delete_user_resource",
+                "tags": [
+                    "users"
+                ]
+            }
+        }
+    },
+    "info": {
+        "title": "Postcode Green Map API",
+        "version": "1.0"
+    },
+    "produces": [
+        "application/json"
+    ],
+    "consumes": [
+        "application/json"
+    ],
+    "tags": [
+        {
+            "name": "coordinates",
+            "description": "Postcode coordinates"
+        },
+        {
+            "name": "tasks",
+            "description": "Operations related to tasks"
+        },
+        {
+            "name": "users",
+            "description": "Operations related to users"
+        },
+        {
+            "name": "activities",
+            "description": "Operations related to user activities"
+        },
+        {
+            "name": "metrics",
+            "description": "Operations related to metrics"
+        }
+    ],
+    "definitions": {
+        "Coordinates": {
+            "required": [
+                "latitude",
+                "longitude",
+                "postcode"
+            ],
+            "properties": {
+                "postcode": {
+                    "type": "string",
+                    "example": "EH1 1YZ"
+                },
+                "latitude": {
+                    "type": "number",
+                    "example": 55.9533
+                },
+                "longitude": {
+                    "type": "number",
+                    "example": -3.1883
+                }
+            },
+            "type": "object"
+        },
+        "Error": {
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "example": "Postcode not found"
+                }
+            },
+            "type": "object"
+        },
+        "Task": {
+            "required": [
+                "description",
+                "name",
+                "points",
+                "task_id"
+            ],
+            "properties": {
+                "task_id": {
+                    "type": "string",
+                    "description": "Task ID"
+                },
+                "name": {
+                    "type": "string",
+                    "description": "Task name"
+                },
+                "description": {
+                    "type": "string",
+                    "description": "Task description"
+                },
+                "points": {
+                    "type": "integer",
+                    "description": "Task points"
+                }
+            },
+            "type": "object"
+        },
+        "UserInput": {
+            "required": [
+                "email",
+                "name",
+                "postcode"
+            ],
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "User name"
+                },
+                "email": {
+                    "type": "string",
+                    "description": "User email"
+                },
+                "postcode": {
+                    "type": "string",
+                    "description": "User postcode"
+                }
+            },
+            "type": "object"
+        },
+        "User": {
+            "required": [
+                "email",
+                "name",
+                "postcode",
+                "user_id"
+            ],
+            "properties": {
+                "user_id": {
+                    "type": "string",
+                    "description": "User ID"
+                },
+                "name": {
+                    "type": "string",
+                    "description": "User name"
+                },
+                "email": {
+                    "type": "string",
+                    "description": "User email"
+                },
+                "postcode": {
+                    "type": "string",
+                    "description": "User postcode"
+                }
+            },
+            "type": "object"
+        },
+        "Activity": {
+            "required": [
+                "date",
+                "task_id",
+                "user_id"
+            ],
+            "properties": {
+                "task_id": {
+                    "type": "string",
+                    "description": "Task ID"
+                },
+                "user_id": {
+                    "type": "string",
+                    "description": "User ID"
+                },
+                "date": {
+                    "type": "string",
+                    "description": "Activity date (YYYY-MM-DD)"
+                },
+                "points": {
+                    "type": "integer",
+                    "description": "Activity points"
+                },
+                "postcode": {
+                    "type": "string",
+                    "description": "User postcode"
+                }
+            },
+            "type": "object"
+        },
+        "ActivityInput": {
+            "properties": {
+                "points": {
+                    "type": "integer",
+                    "description": "Activity points"
+                }
+            },
+            "type": "object"
+        },
+        "PostcodeMetric": {
+            "required": [
+                "postcode",
+                "total_points"
+            ],
+            "properties": {
+                "postcode": {
+                    "type": "string",
+                    "description": "Postcode"
+                },
+                "total_points": {
+                    "type": "integer",
+                    "description": "Total points for the postcode"
+                }
+            },
+            "type": "object"
+        },
+        "PostcodeDetailMetric": {
+            "required": [
+                "postcode"
+            ],
+            "properties": {
+                "postcode": {
+                    "type": "string",
+                    "description": "Postcode"
+                },
+                "carbon_intensity": {
+                    "type": "number",
+                    "description": "Carbon intensity of electricity in gCO2/kWh (null if unavailable)."
+                },
+                "air_quality": {
+                    "type": "integer",
+                    "description": "Air quality index, 1 (low) to 10 (very high) (null if unavailable)."
+                },
+                "users": {
+                    "type": "array",
+                    "description": "Users in the postcode, ordered by points descending.",
+                    "items": {
+                        "$ref": "#/definitions/UserMetric"
+                    }
+                }
+            },
+            "type": "object"
+        },
+        "UserMetric": {
+            "required": [
+                "name",
+                "points",
+                "user_id"
+            ],
+            "properties": {
+                "user_id": {
+                    "type": "string",
+                    "description": "User ID"
+                },
+                "name": {
+                    "type": "string",
+                    "description": "User name"
+                },
+                "points": {
+                    "type": "integer",
+                    "description": "User points"
+                }
+            },
+            "type": "object"
+        }
+    },
+    "responses": {
+        "ParseError": {
+            "description": "When a mask can't be parsed"
+        },
+        "MaskError": {
+            "description": "When any error occurs on mask"
+        }
+    }
+}
