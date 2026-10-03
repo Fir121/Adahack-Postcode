@@ -12,6 +12,7 @@ import {
   MapPin,
   Sprout,
   TrendingUp,
+  Trophy,
   Users,
 } from "lucide-react";
 import type {
@@ -37,6 +38,7 @@ interface SidebarProps {
   onView: (view: SidebarView) => void;
   onTask: (task: Task) => void;
   onHome: () => void;
+  onLeaderboard: () => void;
 }
 
 export function CommunitySidebar(props: SidebarProps) {
@@ -68,9 +70,21 @@ export function CommunitySidebar(props: SidebarProps) {
       <div className="sidebar-identity">
         <h2>{community.postcode}</h2>
         <p>
-          {own ? community.name : `${community.city} · Neighbouring community`}
+          {own
+            ? community.name
+            : [community.city, "Neighbouring community"]
+                .filter(Boolean)
+                .join(" · ")}
         </p>
       </div>
+      <button
+        className="button button-secondary leaderboard-trigger"
+        onClick={props.onLeaderboard}
+        aria-haspopup="dialog"
+        aria-controls="community-leaderboard-dialog"
+      >
+        <Trophy size={17} /> My community leaderboard <ChevronRight size={16} />
+      </button>
       {view !== "overview" && (
         <button
           className="back-link sidebar-back"
@@ -99,7 +113,9 @@ export function CommunitySidebar(props: SidebarProps) {
             <span className="eyebrow">SMALL STEPS, BIG TOGETHER</span>
             <h3>Find your next good thing.</h3>
             <p>
-              Actions inspired by your community’s environmental indicators.
+              {community.indicators.length
+                ? "Actions inspired by your community’s environmental indicators."
+                : "Explore the actions available for your community."}
             </p>
           </div>
           {!own && <NeighbourNote onHome={props.onHome} />}
@@ -133,18 +149,28 @@ export function CommunitySidebar(props: SidebarProps) {
         </>
       ) : (
         <>
-          <ScoreCard
-            score={community.progress.score}
-            change={community.progress.monthlyChange}
-          />
+          {community.progress.scoreAvailable === false ? (
+            <div className="score-card score-pending">
+              <Sprout size={30} />
+              <div>
+                <strong>Green Score pending</strong>
+                <p>Community scores aren’t available yet.</p>
+              </div>
+            </div>
+          ) : (
+            <ScoreCard
+              score={community.progress.score}
+              change={community.progress.monthlyChange}
+            />
+          )}
           <div className="indicator-heading">
-            <h3>How’s your neighbourhood?</h3>
+            <h3>How&apos;s your neighbourhood?</h3>
             <span title="Environmental data and community contributions are tracked separately">
               <Info size={15} />
             </span>
           </div>
           <p className="indicator-subtitle">
-            A little local insight. A place to start.
+            Data from public sources, updated periodically.
           </p>
           {community.indicators.length ? (
             <div className="indicator-list">
@@ -169,7 +195,8 @@ export function CommunitySidebar(props: SidebarProps) {
             </div>
           ) : (
             <p className="empty-note">
-              Environmental indicators aren’t available for this postcode yet.
+              Environmental indicators aren&apos;t available for this postcode
+              yet.
             </p>
           )}
           {community.indicators.some((i) => i.provenance === "mock") && (
@@ -179,7 +206,7 @@ export function CommunitySidebar(props: SidebarProps) {
           )}
           <div className="focus-card">
             <div className="focus-card-top">
-              <span className="eyebrow">TODAY’S LITTLE GOOD THING</span>
+              <span className="eyebrow">TODAY&apos;S LITTLE GOOD THING</span>
               <span className="focus-flower">
                 <Sprout size={19} />
               </span>
@@ -201,44 +228,57 @@ export function CommunitySidebar(props: SidebarProps) {
                 <h3>{recommended.title}</h3>
                 <p>
                   {focus && recommended.targetIndicators.includes(focus.id)
-                    ? `One of ${own ? "your" : "this"} postcode’s focus areas. Here’s a small step that can help.`
+                    ? `One of ${own ? "your" : "this"} postcode's focus areas. Here's a small step that can help.`
                     : recommended.whyItMatters}
                 </p>
-                <div className="task-meta">
-                  <Clock3 size={13} /> {recommended.estimatedTime}
-                  <span>·</span>
-                  {recommended.effort}
-                </div>
+                {recommended.points !== undefined ? (
+                  <div className="task-meta">
+                    {recommended.points}{" "}
+                    {recommended.points === 1 ? "point" : "points"}
+                  </div>
+                ) : (
+                  <div className="task-meta">
+                    <Clock3 size={13} /> {recommended.estimatedTime}
+                    <span>·</span>
+                    {recommended.effort}
+                  </div>
+                )}
                 <button
                   className="button button-primary"
                   onClick={() =>
                     own ? props.onTask(recommended) : props.onHome()
                   }
                 >
-                  {own ? "Take this action" : "Find actions for my postcode"}
+                  {own
+                    ? recommended.completionAvailable === false
+                      ? "View action"
+                      : "Take this action"
+                    : "Find actions for my postcode"}
                   <ArrowRight size={17} />
                 </button>
-                <div className="helps-tags">
-                  <span>Helps</span>
-                  {recommended.targetIndicators.map((id) => (
-                    <span key={id} className="helps-tag">
-                      <IndicatorIcon type={id} size={12} />{" "}
-                      {community.indicators.find((i) => i.id === id)?.label ??
-                        id.replaceAll("_", " ")}
-                    </span>
-                  ))}
-                </div>
+                {recommended.targetIndicators.length > 0 && (
+                  <div className="helps-tags">
+                    <span>Helps</span>
+                    {recommended.targetIndicators.map((id) => (
+                      <span key={id} className="helps-tag">
+                        <IndicatorIcon type={id} size={12} />{" "}
+                        {community.indicators.find((i) => i.id === id)?.label ??
+                          id.replaceAll("_", " ")}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </>
             ) : (
               <>
                 <h3>
                   {dailyCompleted
-                    ? "You’ve done good today."
+                    ? "You've done good today."
                     : "A little pause in the growing."}
                 </h3>
                 <p>
                   {dailyCompleted
-                    ? "Today’s suggested action is complete. Explore other actions, or come back tomorrow for a new contribution."
+                    ? "Today's suggested action is complete. Explore other actions, or come back tomorrow for a new contribution."
                     : "No suggested action is available right now. Check back soon."}
                 </p>
                 {dailyCompleted && <Check size={24} />}
@@ -251,28 +291,32 @@ export function CommunitySidebar(props: SidebarProps) {
           >
             Explore all actions <ArrowRight size={16} />
           </button>
-          <div className="community-stats">
-            <span className="eyebrow">WE’RE GROWING THIS TOGETHER</span>
-            <div className="stats-grid">
-              {community.progress.stats.map((stat) => (
-                <div key={stat.key}>
-                  <span className="stat-icon">
-                    {stat.icon === "users" ? (
-                      <Users size={17} />
-                    ) : (
-                      <IndicatorIcon type={stat.icon ?? stat.key} size={17} />
+          {community.progress.stats.length > 0 && (
+            <div className="community-stats">
+              <span className="eyebrow">WE&apos;RE GROWING THIS TOGETHER</span>
+              <div className="stats-grid">
+                {community.progress.stats.map((stat) => (
+                  <div key={stat.key}>
+                    <span className="stat-icon">
+                      {stat.icon === "users" ? (
+                        <Users size={17} />
+                      ) : (
+                        <IndicatorIcon type={stat.icon ?? stat.key} size={17} />
+                      )}
+                    </span>
+                    <strong>
+                      {stat.value}
+                      {stat.unit && <small> {stat.unit}</small>}
+                    </strong>
+                    <span>{stat.label}</span>
+                    {stat.supportingText && (
+                      <small>{stat.supportingText}</small>
                     )}
-                  </span>
-                  <strong>
-                    {stat.value}
-                    {stat.unit && <small> {stat.unit}</small>}
-                  </strong>
-                  <span>{stat.label}</span>
-                  {stat.supportingText && <small>{stat.supportingText}</small>}
-                </div>
-              ))}
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </>
       )}
       <p className="sidebar-footnote">
@@ -483,8 +527,8 @@ function NeighbourNote({ onHome }: { onHome: () => void }) {
   return (
     <div className="neighbour-note">
       <p>
-        You’re exploring a neighbouring postcode. Your actions contribute to
-        your own community.
+        You&apos;re exploring a neighbouring postcode. Your actions contribute
+        to your own community.
       </p>
       <button className="text-button" onClick={onHome}>
         Back to my postcode <ArrowRight size={14} />
@@ -536,20 +580,28 @@ function ActionCard({
       </div>
       <h4>{task.title}</h4>
       <p>{task.whyItMatters}</p>
-      <span className="task-meta">
-        <Clock3 size={13} /> {task.estimatedTime} ·{" "}
-        {completed ? "Completed" : task.effort}
-      </span>
-      <span className="action-targets">
-        Helps:{" "}
-        {task.targetIndicators
-          .map(
-            (id) =>
-              indicators.find((i) => i.id === id)?.label ??
-              id.replaceAll("_", " "),
-          )
-          .join(" · ")}
-      </span>
+      {task.points !== undefined ? (
+        <span className="task-meta">
+          {task.points} {task.points === 1 ? "point" : "points"}
+        </span>
+      ) : (
+        <span className="task-meta">
+          <Clock3 size={13} /> {task.estimatedTime} ·{" "}
+          {completed ? "Completed" : task.effort}
+        </span>
+      )}
+      {task.targetIndicators.length > 0 && (
+        <span className="action-targets">
+          Helps:{" "}
+          {task.targetIndicators
+            .map(
+              (id) =>
+                indicators.find((i) => i.id === id)?.label ??
+                id.replaceAll("_", " "),
+            )
+            .join(" · ")}
+        </span>
+      )}
     </button>
   );
 }

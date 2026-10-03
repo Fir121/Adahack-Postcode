@@ -41,7 +41,7 @@ export function readDatabase(): MockDatabase {
     return data;
   } catch {
     throw new ApiError(
-      "We couldn’t read your saved demo. Enable browser storage or use Reset demo on the sign-in page.",
+      "We couldn't read your saved demo. Enable browser storage or use Reset demo on the sign-in page.",
       500,
     );
   }
@@ -52,7 +52,7 @@ export function writeDatabase(data: MockDatabase): void {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   } catch {
     throw new ApiError(
-      "Your browser couldn’t save demo progress. Check that local storage is enabled and has space.",
+      "Your browser couldn't save demo progress. Check that local storage is enabled and has space.",
       500,
     );
   }

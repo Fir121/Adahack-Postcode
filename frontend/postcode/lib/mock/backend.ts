@@ -91,7 +91,7 @@ export async function mockLogin(input: LoginInput): Promise<AuthResponse> {
     (await hashPassword(input.password, account.salt)) !== account.passwordHash
   )
     throw new ApiError(
-      "That email and password don’t match. Please try again.",
+      "That email and password don't match. Please try again.",
       401,
     );
   const latest = readDatabase();
@@ -121,13 +121,13 @@ export async function mockSignup(input: SignupInput): Promise<AuthResponse> {
   const community = db.communities.find((c) => c.postcode === postcode);
   if (!community)
     throw new ApiError(
-      "This postcode isn’t part of the demo yet. Choose one of the supported postcodes.",
+      "This postcode isn't part of the demo yet. Choose one of the supported postcodes.",
       422,
       { postcode: "Please use a supported demo postcode." },
     );
   if (db.accounts.some((a) => a.user.email === email))
     throw new ApiError(
-      "There’s already an account with this email. Try signing in.",
+      "There's already an account with this email. Try signing in.",
       409,
       { email: "This email is already registered." },
     );
@@ -167,7 +167,7 @@ export async function mockCommunity(id: string) {
   const community = (await mockCommunities()).find((c) => c.id === id);
   if (!community)
     throw new ApiError(
-      "We don’t have community data for this postcode yet.",
+      "We don't have community data for this postcode yet.",
       404,
     );
   return community;
@@ -205,7 +205,7 @@ export async function mockCompleteTask(
   const history = db.completions.filter((c) => c.userId === user.id);
   if (!isTaskAvailable(task, history, community.id))
     throw new ApiError(
-      "You’ve already completed this action. Choose another, or come back tomorrow for daily actions.",
+      "You've already completed this action. Choose another, or come back tomorrow for daily actions.",
       409,
     );
   const errors = validateProof(task, input.proof);

@@ -17,7 +17,8 @@ import { ApiError } from "@/lib/api/client";
 import { apiConfig } from "@/lib/api/config";
 import { validateProof } from "@/lib/tasks";
 import { errorMessage } from "@/lib/utils";
-import { IndicatorIcon } from "@/components/ui";
+import { useTask } from "@/hooks/queries";
+import { ErrorState, LoadingState, IndicatorIcon } from "@/components/ui";
 
 export function CompletionModal({
   task,
@@ -32,6 +33,7 @@ export function CompletionModal({
   onClose: () => void;
   onComplete: (result: CompletionResponse) => Promise<void>;
 }) {
+  const details = useTask(task.id, task.completionAvailable === false);
   const dialog = useRef<HTMLDialogElement>(null);
   const [proof, setProof] = useState<TaskProof>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -92,7 +94,38 @@ export function CompletionModal({
       >
         <X size={20} />
       </button>
-      {mutation.isSuccess ? (
+      {task.completionAvailable === false ? (
+        <>
+          <span className="task-category">Community action</span>
+          <h2 id="task-modal-title">{details.data?.title ?? task.title}</h2>
+          {details.isPending ? (
+            <LoadingState message="Loading action details…" />
+          ) : details.isError ? (
+            <ErrorState
+              message={errorMessage(details.error)}
+              retry={() => {
+                void details.refetch();
+              }}
+            />
+          ) : (
+            <>
+              <p className="modal-description">{details.data.description}</p>
+              <p className="task-meta">
+                {details.data.points}{" "}
+                {details.data.points === 1 ? "point" : "points"}
+              </p>
+              <p className="empty-note">
+                Action completion and proof submission aren’t available yet. You
+                can explore the actions while this part of the app is being
+                built.
+              </p>
+            </>
+          )}
+          <button className="button button-secondary" onClick={onClose}>
+            Back to my neighbourhood <ArrowRight size={17} />
+          </button>
+        </>
+      ) : mutation.isSuccess ? (
         <div className="completion-success">
           <span className="success-sprout">
             <Sprout size={38} />
@@ -102,13 +135,13 @@ export function CompletionModal({
           </span>
           <h2 id="task-modal-title">
             {approved
-              ? "Look what we’re growing."
+              ? "Look what we're growing."
               : "Your action is being reviewed."}
           </h2>
           <p>
             {approved
-              ? `Your contribution is now part of ${postcode}’s community progress.`
-              : "We’ll add your contribution once your proof is approved."}
+              ? `Your contribution is now part of ${postcode}'s community progress.`
+              : "We'll add your contribution once your proof is approved."}
           </p>
           {approved && (
             <div className="success-score">
@@ -257,8 +290,8 @@ export function CompletionModal({
             </button>
             {apiConfig.useMock && (
               <p className="modal-demo-note">
-                Demo proof is approved instantly. Photo files aren’t retained in
-                this browser demo.
+                Demo proof is approved instantly. Photo files aren&apos;t
+                retained in this browser demo.
               </p>
             )}
           </form>

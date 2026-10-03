@@ -25,6 +25,7 @@ import {
 import { errorMessage } from "@/lib/utils";
 import { isTaskAvailable, recommendTasks } from "@/lib/tasks";
 import { CommunitySidebar, type SidebarView } from "./community-sidebar";
+import { LeaderboardModal } from "./leaderboard-modal";
 import { CompletionModal } from "@/components/tasks/completion-modal";
 import { ErrorState, LoadingState } from "@/components/ui";
 import type {
@@ -42,6 +43,7 @@ export function Dashboard() {
   const user = useCurrentUser();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [view, setView] = useState<SidebarView>("overview");
+  const [leaderboardOpen, setLeaderboardOpen] = useState(false);
   const [task, setTask] = useState<Task | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [focusRequest, setFocusRequest] = useState(0);
@@ -88,6 +90,9 @@ export function Dashboard() {
         queryKey: queryKeys.community(result.completion.communityId),
       }),
       client.invalidateQueries({ queryKey: queryKeys.history(user.data!.id) }),
+      client.invalidateQueries({
+        queryKey: queryKeys.leaderboard(user.data!.postcode),
+      }),
     ]);
   }
   if (community.isPending || !user.data) return <LoadingState />;
@@ -150,7 +155,7 @@ export function Dashboard() {
               <span className="toolbar-leaf">
                 <Leaf size={16} />
               </span>
-              <span>Your neighbourhood, growing.</span>
+              <span>See what extraordinary things your postcode could do</span>
             </div>
             <label className="community-selector">
               <MapPin size={13} />
@@ -184,15 +189,16 @@ export function Dashboard() {
               <Sprout size={21} />
             </span>
             <div>
-              <strong>Every little action adds a little green.</strong>
-              <span>
-                Explore a postcode. Find an action. Grow something good.
-              </span>
+              <strong>
+                Every action adds a little green to your community.
+                <br />
+                Green outcomes make your community stronger!
+              </strong>
             </div>
           </div>
           {communities.isError && (
             <div className="neighbours-error" role="alert">
-              Nearby communities couldn’t load.{" "}
+              Nearby communities couldn&apos;t load.{" "}
               <button
                 className="text-button"
                 onClick={() => {
@@ -241,7 +247,10 @@ export function Dashboard() {
           >
             <span className="drawer-handle" />
             <span>
-              {current.postcode} · Green Score {current.progress.score}
+              {current.postcode} · Green Score{" "}
+              {current.progress.scoreAvailable === false
+                ? "pending"
+                : current.progress.score}
             </span>
             {expanded ? <ArrowDown size={16} /> : <ArrowUp size={16} />}
           </button>
@@ -279,15 +288,23 @@ export function Dashboard() {
                 if (own) setTask(selected);
               }}
               onHome={returnHome}
+              onLeaderboard={() => setLeaderboardOpen(true)}
             />
           </div>
         </aside>
       </div>
       <footer className="dashboard-footer">
         <span>
-          Built by Team FlickFlack · Usage Data is for demonstration purposes only.
+          Built by Team FlickFlack · Usage Data is for demonstration purposes
+          only.
         </span>
       </footer>
+      {leaderboardOpen && (
+        <LeaderboardModal
+          user={user.data}
+          onClose={() => setLeaderboardOpen(false)}
+        />
+      )}
       {task && (
         <CompletionModal
           task={task}

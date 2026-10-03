@@ -14,7 +14,7 @@ export const demoInfo: DemoInfo = {
 
 const declaration = {
   type: "declaration",
-  label: "I’ve completed this action",
+  label: "I've completed this action",
   required: true,
 } as const;
 const photo = {
@@ -83,7 +83,7 @@ export const mockTasks: Task[] = [
     id: "recycle-right",
     title: "Sort it out",
     description:
-      "Check your local recycling guidance, then correctly sort today’s packaging. Rinse what needs rinsing and keep unsuitable items out.",
+      "Check your local recycling guidance, then correctly sort today's packaging. Rinse what needs rinsing and keep unsuitable items out.",
     whyItMatters:
       "Getting recycling right is a simple community habit that reduces contamination.",
     targetIndicators: ["recycling"],

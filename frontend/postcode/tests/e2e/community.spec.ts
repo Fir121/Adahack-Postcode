@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
+test.skip(process.env.E2E_API !== "false", "Mock-mode regression suite");
+
 async function demoLogin(page: Page) {
   await page.goto("/login");
   await page.getByRole("button", { name: "Try the demo", exact: true }).click();
@@ -194,7 +196,7 @@ test("protected routes redirect, credentials validate, and sessions survive refr
   await page.getByLabel("Email address").fill("demo@greentogether.test");
   await page.getByLabel("Password", { exact: true }).fill("incorrect");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await expect(page.getByRole("alert").first()).toContainText("don’t match");
+  await expect(page.getByRole("alert").first()).toContainText("don't match");
   await page.getByRole("button", { name: "Try the demo", exact: true }).click();
   await expect(page).toHaveURL("/");
   await page.reload();
@@ -252,7 +254,7 @@ test("completion updates score, history, and map while measured values remain un
     .getByRole("button", { name: "Complete action", exact: true })
     .click();
   await expect(
-    dialog.getByRole("heading", { name: "Look what we’re growing." }),
+    dialog.getByRole("heading", { name: "Look what we're growing." }),
   ).toBeVisible();
   await dialog
     .getByRole("button", { name: "Back to my neighbourhood" })
@@ -346,12 +348,12 @@ test("signup restricts supported postcodes and text/photo proof validates", asyn
   await page.getByLabel("Email address").fill("jamie@example.test");
   await page.getByLabel("Your postcode").fill("SW1A 1AA");
   await page.getByLabel("Password", { exact: true }).fill("LovelyNeighbour1!");
-  await page.getByRole("button", { name: "Let’s grow together" }).click();
+  await page.getByRole("button", { name: "Let's grow together" }).click();
   await expect(
     page.getByText("Choose a supported postcode listed below."),
   ).toBeVisible();
   await page.getByRole("button", { name: "EH3 9GD", exact: true }).click();
-  await page.getByRole("button", { name: "Let’s grow together" }).click();
+  await page.getByRole("button", { name: "Let's grow together" }).click();
   await expect(page).toHaveURL("/");
   await page.getByRole("button", { name: "Explore all actions" }).click();
   await page.getByRole("button", { name: /Give peak hours a break/ }).click();
@@ -368,7 +370,7 @@ test("signup restricts supported postcodes and text/photo proof validates", asyn
     .getByRole("button", { name: "Complete action", exact: true })
     .click();
   await expect(
-    dialog.getByRole("heading", { name: "Look what we’re growing." }),
+    dialog.getByRole("heading", { name: "Look what we're growing." }),
   ).toBeVisible();
   await dialog
     .getByRole("button", { name: "Back to my neighbourhood" })
@@ -393,7 +395,7 @@ test("signup restricts supported postcodes and text/photo proof validates", asyn
     .getByRole("button", { name: "Complete action", exact: true })
     .click();
   await expect(
-    dialog.getByRole("heading", { name: "Look what we’re growing." }),
+    dialog.getByRole("heading", { name: "Look what we're growing." }),
   ).toBeVisible();
   await dialog
     .getByRole("button", { name: "Back to my neighbourhood" })
@@ -436,4 +438,34 @@ test("mobile drawer, reduced motion, provider failure and keyboard modal dismiss
   await expect(
     page.getByRole("button", { name: "Take this action" }),
   ).toBeFocused();
+});
+
+test("demo leaderboard reflects approved contributions and always targets the home community", async ({
+  page,
+}) => {
+  await demoLogin(page);
+  await page.getByLabel("Explore a postcode").selectOption("eh3-9fg");
+  await page.getByRole("button", { name: "My community leaderboard" }).click();
+  const dialog = page.getByRole("dialog", { name: "Community leaderboard" });
+  await expect(
+    dialog.getByRole("table", { name: "Community leaderboard for EH3 9GD" }),
+  ).toBeVisible();
+  await expect(
+    dialog.locator(".leaderboard-current-user td").last(),
+  ).toHaveText("1");
+  await dialog.getByRole("button", { name: "Close leaderboard" }).click();
+  await page.getByRole("button", { name: "Focus on my postcode" }).click();
+  await page.getByRole("button", { name: "Take this action" }).click();
+  const action = page.getByRole("dialog");
+  await action.getByRole("checkbox").check();
+  await action
+    .getByRole("button", { name: "Complete action", exact: true })
+    .click();
+  await action
+    .getByRole("button", { name: "Back to my neighbourhood" })
+    .click();
+  await page.getByRole("button", { name: "My community leaderboard" }).click();
+  await expect(
+    dialog.locator(".leaderboard-current-user td").last(),
+  ).toHaveText("2");
 });

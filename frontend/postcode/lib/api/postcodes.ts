@@ -1,3 +1,5 @@
+import type { CoordinatesDto } from "@/types/api";
+import { adaptCoordinates, postcodeFromId, requireList } from "./adapters";
 import type { PostcodeCommunity } from "@/types/domain";
 import { apiConfig } from "./config";
 import { apiRequest } from "./client";
@@ -31,19 +33,27 @@ export function adaptCommunity(dto: CommunityDto): PostcodeCommunity {
   };
 }
 export async function getCommunities(): Promise<PostcodeCommunity[]> {
-  const data = apiConfig.useMock
-    ? await (await import("@/lib/mock/backend")).mockCommunities()
-    : await apiRequest<CommunityDto[]>(endpoints.communities);
-  return data.map(adaptCommunity);
+  if (apiConfig.useMock)
+    return (await (await import("@/lib/mock/backend")).mockCommunities()).map(
+      adaptCommunity,
+    );
+  return requireList(
+    await apiRequest<CoordinatesDto[]>(endpoints.coordinates),
+  ).map(adaptCoordinates);
 }
 export async function getCommunity(id: string): Promise<PostcodeCommunity> {
-  const data = apiConfig.useMock
-    ? await (await import("@/lib/mock/backend")).mockCommunity(id)
-    : await apiRequest<CommunityDto>(endpoints.community(id));
-  return adaptCommunity(data);
+  if (apiConfig.useMock)
+    return adaptCommunity(
+      await (await import("@/lib/mock/backend")).mockCommunity(id),
+    );
+  return adaptCoordinates(
+    await apiRequest<CoordinatesDto>(endpoints.coordinate(postcodeFromId(id))),
+  );
 }
 export async function getSupportedPostcodes(): Promise<string[]> {
-  return apiConfig.useMock
-    ? (await import("@/lib/mock/backend")).mockSupportedPostcodes()
-    : apiRequest(endpoints.supportedPostcodes);
+  if (apiConfig.useMock)
+    return (await import("@/lib/mock/backend")).mockSupportedPostcodes();
+  return [
+    ...new Set((await getCommunities()).map((community) => community.postcode)),
+  ];
 }

@@ -126,7 +126,7 @@ test("formatting and existence validation remain separate", async () => {
       password: "password123",
       postcode: "SW1A 1AA",
     }),
-    /isn’t part of the demo/,
+    /isn't part of the demo/,
   );
 });
 
@@ -143,7 +143,7 @@ test("signup persists a session without storing plaintext passwords", async () =
   assert.equal(await mockCurrentUser(), null);
   await assert.rejects(
     mockLogin({ email: "sam@example.test", password: "wrong" }),
-    /don’t match/,
+    /don't match/,
   );
   assert.equal(
     (await mockLogin({ email: "sam@example.test", password: "password123" }))
@@ -293,51 +293,29 @@ test("real client sends cookies and preserves validation errors and unavailable 
   t.mock.method(globalThis, "fetch", async () => {
     throw new TypeError("Network unavailable");
   });
-  await assert.rejects(apiRequest("/tasks"), /couldn’t reach the API/);
+  await assert.rejects(apiRequest("/tasks"), /couldn't reach the API/);
 });
 
-test("real auth translates 401 into signed out and real uploads use multipart without overriding its boundary", async (t) => {
+test("development profiles clear a deleted selection; unsupported completions never call the API", async (t) => {
   const previous = apiConfig.useMock;
   apiConfig.useMock = false;
   try {
-    t.mock.method(
-      globalThis,
-      "fetch",
-      async () =>
-        new Response(JSON.stringify({ message: "Sign in" }), { status: 401 }),
-    );
-    assert.equal(await getCurrentUser(), null);
-    t.mock.method(
-      globalThis,
-      "fetch",
-      async (url: string, options: RequestInit) => {
-        assert.ok(url.endsWith("/completions"));
-        assert.ok(options.body instanceof FormData);
-        assert.equal(new Headers(options.headers).has("Content-Type"), false);
-        assert.equal(options.body.get("taskId"), "plant-pot");
-        assert.equal((options.body.get("image") as File).name, "plant.png");
-        return new Response(
-          JSON.stringify({
-            completion: { status: "approved" },
-            progress: {
-              score: 0.69,
-              scoreMax: 1,
-              totalActions: 205,
-              activityByIndicator: {},
-              stats: [],
-            },
-          }),
-          { status: 200 },
-        );
-      },
-    );
-    const result = await completeTask({
-      taskId: "plant-pot",
-      communityId: "eh3-9gd",
-      proof: { image: new File(["png"], "plant.png", { type: "image/png" }) },
+    localStorage.setItem("our-patch-development-profile", "u-1");
+    let calls = 0;
+    t.mock.method(globalThis, "fetch", async (url: string) => {
+      calls++;
+      assert.ok(url.endsWith("/users/u-1"));
+      return new Response(JSON.stringify({ message: "Not found" }), {
+        status: 404,
+      });
     });
-    assert.equal(result.progress.score, 69);
-    assert.equal("scoreMax" in result.progress, false);
+    assert.equal(await getCurrentUser(), null);
+    assert.equal(localStorage.getItem("our-patch-development-profile"), null);
+    await assert.rejects(
+      completeTask({ taskId: "1", communityId: "eh9-1ab", proof: {} }),
+      /not available yet/,
+    );
+    assert.equal(calls, 1);
   } finally {
     apiConfig.useMock = previous;
   }

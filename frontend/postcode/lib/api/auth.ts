@@ -6,37 +6,52 @@ import type {
   User,
 } from "@/types/domain";
 import { apiConfig } from "./config";
-import { apiRequest, ApiError } from "./client";
-import { endpoints } from "./endpoints";
+import { ApiError } from "./client";
+import { createUser, getUser } from "./users";
 
+export const PROFILE_KEY = "our-patch-development-profile";
+export async function selectDevelopmentProfile(
+  id: string,
+): Promise<AuthResponse> {
+  const user = await getUser(id);
+  localStorage.setItem(PROFILE_KEY, user.id);
+  return { user };
+}
 export async function login(input: LoginInput): Promise<AuthResponse> {
   if (apiConfig.useMock)
     return (await import("@/lib/mock/backend")).mockLogin(input);
-  return apiRequest(endpoints.login, {
-    method: "POST",
-    body: JSON.stringify(input),
-  });
+  throw new ApiError(
+    "Password sign-in is not available yet. Choose a development profile.",
+    501,
+  );
 }
 export async function signup(input: SignupInput): Promise<AuthResponse> {
   if (apiConfig.useMock)
     return (await import("@/lib/mock/backend")).mockSignup(input);
-  return apiRequest(endpoints.signup, {
-    method: "POST",
-    body: JSON.stringify(input),
-  });
+  const user = await createUser(input);
+  localStorage.setItem(PROFILE_KEY, user.id);
+  return { user };
 }
 export async function logout(): Promise<void> {
   if (apiConfig.useMock)
     return (await import("@/lib/mock/backend")).mockLogout();
-  return apiRequest(endpoints.logout, { method: "POST" });
+  localStorage.removeItem(PROFILE_KEY);
 }
 export async function getCurrentUser(): Promise<User | null> {
   if (apiConfig.useMock)
     return (await import("@/lib/mock/backend")).mockCurrentUser();
+  const id =
+    typeof localStorage === "undefined"
+      ? null
+      : localStorage.getItem(PROFILE_KEY);
+  if (!id) return null;
   try {
-    return await apiRequest<User>(endpoints.me);
+    return await getUser(id);
   } catch (error) {
-    if (error instanceof ApiError && error.status === 401) return null;
+    if (error instanceof ApiError && error.status === 404) {
+      localStorage.removeItem(PROFILE_KEY);
+      return null;
+    }
     throw error;
   }
 }

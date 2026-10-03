@@ -12,7 +12,11 @@ cp .env.example .env.local
 pnpm dev
 ```
 
-Open http://localhost:3000. Click **Try the demo**, or sign up with a supported postcode.
+Open http://localhost:3000. The default mode calls the supplied development API through a same-origin server proxy. Select an existing **development profile**, or create a profile using a postcode supplied by the API. Password authentication, scores, indicators and task completion are pending backend work; the UI identifies these as unavailable.
+
+The root Icon.png is used unchanged for the header logo, browser favicon, Apple touch icon and app manifest.
+
+For the original interactive mock demo, set NEXT_PUBLIC_USE_MOCK_API=true and restart/rebuild. Click **Try the demo** or sign up with a supported demo postcode.
 
 Demo account: `demo@greentogether.test` / `GreenTogether!`.
 
@@ -38,9 +42,11 @@ The Postcode Lottery navigation item is an external link. This project is indepe
 
 ## Backend integration
 
-Set `NEXT_PUBLIC_USE_MOCK_API=false` and configure `NEXT_PUBLIC_API_BASE_URL`. Restart development or rebuild after changing public environment variables.
+The live Swagger integration is enabled by default. API_BASE_URL configures the server-side upstream and defaults to https://chivalry-handlebar-hangover.ngrok-free.dev/api/v1. Browser requests use /api/backend so the currently missing CORS headers and ngrok interstitial do not prevent access.
 
-Real implementations exist for authentication, current user, supported postcodes, communities, tasks, history, and multipart completion submission. Endpoint constants live in `lib/api/endpoints.ts`; DTO normalization lives in the services. The backend is developed separately, so paths and payloads remain provisional. See [the backend contract](docs/api-contract.md) before connecting it.
+Coordinates populate map centroids and supported postcodes; task list/detail endpoints provide actions and points; user list/detail/create endpoints provide development profiles. Typed update/delete services are available, while the account UI remains read-only. Profiles do not constitute password authentication, and missing scores/history/completion are not replaced with demo values.
+
+See [the backend contract and remaining endpoints](docs/api-contract.md) for exact mappings, configuration and the additions needed to make the full app dynamic.
 
 ## Project layout
 
@@ -60,6 +66,12 @@ Real implementations exist for authentication, current user, supported postcodes
 - `scripts/copy-maplibre-worker.mjs`: copies MapLibre v6's worker and shared module to `public/maplibre/` before development/build, as required for Turbopack. Generated vendor files are ignored in Git and regenerated from the installed version.
 
 The map is dynamically loaded through a client wrapper. Server layouts remain server components; the authenticated shell checks the current-user query before rendering protected content. React state handles sidebar selection, modal visibility, and mobile drawer state. TanStack Query synchronizes API state and invalidates community/history queries after completion.
+
+## Community leaderboard
+
+Use **My community leaderboard** in the right sidebar to open your own postcode's Rank / Name / Points table. Your row is highlighted and your rank/points appear above it. The popup works from any sidebar view, supports keyboard dismissal and mobile layouts, and refreshes on opening.
+
+The proposed GET /postcodes/{postcode}/leaderboard endpoint is wired through the API proxy. Until it is implemented, a 404/501 shows “Leaderboard coming soon”; errors have retry and empty successful responses have their own state. Mock mode shows rankings from saved community profiles and approved actions. See [the leaderboard response contract](docs/api-contract.md#community-leaderboard-proposed-endpoint).
 
 ## Resprite artwork
 
@@ -88,5 +100,7 @@ pnpm test:e2e
 ```
 
 Browser tests start the production build on port 3100. They cover auth protection/persistence, local contributions, unchanged environmental data, neighbouring map selection, text/photo proof, mobile drawers, reduced motion, provider failure, and keyboard modal dismissal. Screenshots and failure traces go to ignored `test-results/`.
+
+For API browser tests, build with NEXT_PUBLIC_USE_MOCK_API=false and run E2E_API=true pnpm test:e2e. Add E2E_LIVE_API=true for the optional read-only smoke against the configured server. For the original regression suite, build with NEXT_PUBLIC_USE_MOCK_API=true and run E2E_API=false pnpm test:e2e.
 
 The desktop demo target is Chrome; the mobile experience uses a bottom drawer rather than a narrow desktop sidebar. Primary actions use visible controls, the proof dialog traps/restores focus, and animations respect reduced motion.

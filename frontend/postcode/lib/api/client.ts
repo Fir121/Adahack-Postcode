@@ -28,14 +28,15 @@ export async function apiRequest<T>(
       credentials: "include",
       signal: controller.signal,
     });
-    if (response.status === 204 && response.ok) return undefined as T;
+    if (response.ok && (response.status === 204 || options.method === "DELETE"))
+      return undefined as T;
     const body = await response.json().catch(() => null);
     if (!response.ok)
       throw new ApiError(
         body?.message ??
           `The API returned an error (${response.status}). Please try again.`,
         response.status,
-        body?.fields,
+        body?.fields ?? body?.errors,
       );
     if (body === null)
       throw new ApiError("The API returned an invalid response.", 502);
@@ -45,7 +46,7 @@ export async function apiRequest<T>(
     throw new ApiError(
       controller.signal.aborted
         ? "The request timed out. Please try again."
-        : "We couldn’t reach the API. Check your connection and try again.",
+        : "We couldn't reach the API. Check your connection and try again.",
       0,
     );
   } finally {

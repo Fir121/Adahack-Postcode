@@ -51,6 +51,7 @@ export interface PostcodeStats {
   supportingText?: string;
 }
 export interface CommunityProgress {
+  scoreAvailable?: boolean;
   score: number;
   level: number;
   monthlyChange?: number;
@@ -91,6 +92,8 @@ export type ProofRequirement =
       acceptedTypes: readonly string[];
     };
 export interface Task {
+  points?: number;
+  completionAvailable?: boolean;
   id: string;
   title: string;
   description: string;
@@ -134,4 +137,17 @@ export interface DemoInfo {
   email: string;
   password: string;
   postcode: string;
+}
+
+export interface LeaderboardEntry {
+  userId: string;
+  name: string;
+  rank: number;
+  points: number;
+}
+export interface CommunityLeaderboard {
+  postcode: string;
+  entries: LeaderboardEntry[];
+  available: boolean;
+  source: "api" | "mock";
 }

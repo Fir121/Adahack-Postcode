@@ -120,7 +120,7 @@ export default function CommunityMap(props: MapProps) {
       queueMicrotask(() => {
         if (!disposed)
           setMapError(
-            `Your browser couldn’t start the map. ${errorMessage(error)}`,
+            `Your browser couldn't start the map. ${errorMessage(error)}`,
           );
       });
       return () => {
@@ -171,14 +171,17 @@ export default function CommunityMap(props: MapProps) {
           community.centroid.latitude,
         ]);
         const element = label.getElement();
-        const color = scoreColor(community.progress.score, palette);
+        const hasScore = community.progress.scoreAvailable !== false;
+        const color = hasScore
+          ? scoreColor(community.progress.score, palette)
+          : "#e8e5da";
         element.style.setProperty("--postcode-color", color);
         element.style.setProperty("--postcode-ink", scoreTextColor(color));
         element.dataset.communityId = community.id;
-        element.textContent = `${community.postcode} · ${community.progress.score}`;
+        element.textContent = `${community.postcode} · ${hasScore ? community.progress.score : "Pending"}`;
         element.setAttribute(
           "aria-label",
-          `Explore ${community.postcode}, Green Score ${community.progress.score}`,
+          `Explore ${community.postcode}, Green Score ${hasScore ? community.progress.score : "pending"}`,
         );
         element.setAttribute(
           "aria-pressed",
@@ -212,10 +215,9 @@ export default function CommunityMap(props: MapProps) {
       const visible = new Set<string>();
       const decorations = communityDecorations(community);
       for (const decoration of decorations) {
-        const animated = decorationAnimates(
-          decoration.type,
-          community.progress.score,
-        );
+        const animated =
+          community.progress.scoreAvailable !== false &&
+          decorationAnimates(decoration.type, community.progress.score);
         const key = `${decoration.id}:${animated}`;
         visible.add(key);
         let visual = visuals.get(key);
@@ -240,7 +242,8 @@ export default function CommunityMap(props: MapProps) {
         element.style.setProperty(
           "--asset-saturation",
           String(
-            decoration.type === "house"
+            decoration.type === "house" &&
+              community.progress.scoreAvailable !== false
               ? houseSaturation(community.progress.score)
               : 1,
           ),
@@ -371,7 +374,7 @@ export default function CommunityMap(props: MapProps) {
       {mapError && (
         <div className="map-fatal" role="alert">
           <CircleAlert size={27} />
-          <h3>Let’s get your map growing.</h3>
+          <h3>Let&apos;s get your map growing.</h3>
           <p>{mapError}</p>
           <button className="button button-secondary" onClick={retryMap}>
             Retry map
@@ -430,7 +433,9 @@ export default function CommunityMap(props: MapProps) {
         <span>THRIVING</span>
       </div>
       <span className="map-geometry-note">
-        Postcode colour shows Green Score · tap a label to explore
+        {props.selected.progress.scoreAvailable === false
+          ? "Green scores pending · tap a label to explore"
+          : "Postcode colour shows Green Score · tap a label to explore"}
       </span>
     </div>
   );

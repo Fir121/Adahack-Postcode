@@ -1,11 +1,11 @@
 export const endpoints = {
-  login: "/auth/login",
-  signup: "/auth/signup",
-  logout: "/auth/logout",
-  me: "/users/me",
-  supportedPostcodes: "/postcodes/supported",
-  communities: "/postcodes",
-  community: (id: string) => `/postcodes/${encodeURIComponent(id)}`,
+  coordinates: "/coordinates/",
+  coordinate: (postcode: string) =>
+    "/coordinates/" + encodeURIComponent(postcode),
   tasks: "/tasks",
-  completions: "/completions",
+  task: (id: string) => "/tasks/" + encodeURIComponent(id),
+  leaderboard: (postcode: string) =>
+    "/postcodes/" + encodeURIComponent(postcode) + "/leaderboard",
+  users: "/users",
+  user: (id: string) => "/users/" + encodeURIComponent(id),
 };

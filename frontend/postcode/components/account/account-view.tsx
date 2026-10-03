@@ -8,6 +8,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Check,
+  HandCoins,
   LogOut,
   MapPin,
   RotateCcw,
@@ -47,11 +48,9 @@ export function AccountView() {
         <ArrowLeft size={16} /> Back to your neighbourhood
       </Link>
       <header className="account-heading">
-        <span className="eyebrow">YOUR LITTLE CONTRIBUTIONS, ALL TOGETHER</span>
         <h1>
           My Account<span className="brand-dot">.</span>
         </h1>
-        <p>A neighbour. A helping hand. Part of something greener.</p>
       </header>
       <div className="account-grid">
         <section className="profile-card">
@@ -60,7 +59,11 @@ export function AccountView() {
           </span>
           <h2>{user.data.name}</h2>
           <span className="membership-tag">
-            <Sprout size={14} /> Part of the community
+            <HandCoins size={14} /> Part of the Postcode Lottery
+          </span>
+          <br />
+          <span className="membership-tag">
+            <Sprout size={14} /> Part of the Patch community
           </span>
           <dl className="profile-fields">
             <div>
@@ -81,7 +84,7 @@ export function AccountView() {
               </dd>
               {community.isError && (
                 <dd className="field-error" role="alert">
-                  Community details couldn’t load.{" "}
+                  Community details couldn&apos;t load.{" "}
                   <button
                     className="text-button"
                     onClick={() => {
@@ -103,7 +106,11 @@ export function AccountView() {
             disabled={mutation.isPending}
           >
             <LogOut size={16} />{" "}
-            {mutation.isPending ? "Please wait…" : "Sign out"}
+            {mutation.isPending
+              ? "Please wait…"
+              : apiConfig.useMock
+                ? "Sign out"
+                : "Switch profile"}
           </button>
           {apiConfig.useMock && (
             <div className="reset-section">
@@ -148,15 +155,22 @@ export function AccountView() {
         <section className="history-card">
           <div className="section-heading">
             <div>
-              <span className="eyebrow">GOOD THINGS YOU’VE DONE</span>
+              <span className="eyebrow">GOOD THINGS YOU&apos;VE DONE</span>
               <h2>Your action history</h2>
             </div>
-            <span className="history-count">{history.data?.length ?? "—"}</span>
+            <span className="history-count">
+              {apiConfig.useMock ? (history.data?.length ?? "—") : "—"}
+            </span>
           </div>
           <p className="muted">
             Each action is a little contribution to your postcode.
           </p>
-          {history.isPending ? (
+          {!apiConfig.useMock ? (
+            <p className="empty-note">
+              Action history isn’t available yet. It will appear here once the
+              completion API is ready.
+            </p>
+          ) : history.isPending ? (
             <LoadingState message="Gathering your contributions…" />
           ) : history.isError ? (
             <ErrorState
@@ -218,7 +232,8 @@ export function AccountView() {
         </section>
       </div>
       <p className="account-footnote">
-        Our Patch is an independent community project.
+        Built by Team FlickFlack · Usage Data is for demonstration purposes
+        only.
       </p>
     </main>
   );

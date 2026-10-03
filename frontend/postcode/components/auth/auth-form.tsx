@@ -15,6 +15,8 @@ import {
   Sprout,
 } from "lucide-react";
 import { login, resetDemo, signup } from "@/lib/api/auth";
+import { apiConfig } from "@/lib/api/config";
+import { DevelopmentProfiles } from "./development-profiles";
 import { ApiError } from "@/lib/api/client";
 import {
   queryKeys,
@@ -23,7 +25,7 @@ import {
   useSupportedPostcodes,
 } from "@/hooks/queries";
 import { errorMessage, isPostcodeFormat, normalizePostcode } from "@/lib/utils";
-import { Wordmark } from "@/components/ui";
+import { ErrorState, Wordmark } from "@/components/ui";
 import type { LoginInput, SignupInput } from "@/types/domain";
 
 export function AuthForm({ mode }: { mode: "login" | "signup" }) {
@@ -68,7 +70,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
     const next: Record<string, string> = {};
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.email.trim()))
       next.email = "Enter a valid email address.";
-    if (fields.password.length < (signingUp ? 8 : 1))
+    if (apiConfig.useMock && fields.password.length < (signingUp ? 8 : 1))
       next.password = signingUp
         ? "Use at least 8 characters."
         : "Enter your password.";
@@ -111,24 +113,14 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
     <main id="main-content" className="auth-page">
       <header className="auth-header">
         <Wordmark />
-        <span className="auth-independent">
-          An independent community project
-        </span>
       </header>
       <div className="auth-layout">
         <section className="auth-story">
-          <span className="eyebrow">
-            <span className="small-dot" /> A LITTLE LOCAL LOVE
-          </span>
           <h1>
             A greener postcode
             <br />
             starts with <span>you.</span>
           </h1>
-          <p>
-            Small actions add up. Find out how your neighbourhood is doing, lend
-            a hand, and watch your community grow.
-          </p>
           <div className="auth-illustration" aria-hidden="true">
             <div className="illustration-sun" />
             <Image
@@ -160,9 +152,6 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
               alt=""
             />
             <span className="illustration-ground" />
-            <span className="illustration-label">
-              <Sprout size={17} /> Good things grow together.
-            </span>
           </div>
           <div className="auth-steps">
             <span>
@@ -179,122 +168,171 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           </div>
         </section>
         <section className="auth-card" aria-labelledby="auth-title">
-          <span className="card-kicker">LET’S GROW SOMETHING GOOD</span>
+          <span className="card-kicker">LET&apos;S GROW SOMETHING GOOD</span>
           <h2 id="auth-title">
-            {signingUp ? "Join your neighbours." : "Welcome back."}
+            {signingUp
+              ? "Join your neighbours."
+              : apiConfig.useMock
+                ? "Welcome back."
+                : "Explore your neighbourhood."}
           </h2>
           <p className="auth-subtitle">
             {signingUp
               ? "Your small actions can make a big difference."
               : "Your greener neighbourhood is waiting."}
           </p>
-          <form onSubmit={submit} noValidate>
-            {signingUp && (
-              <Field
-                name="name"
-                label="Your name"
-                value={fields.name}
-                autoComplete="name"
-                onChange={changeField}
-                error={errors.name}
-              />
-            )}
-            <Field
-              name="email"
-              label="Email address"
-              type="email"
-              value={fields.email}
-              autoComplete="email"
-              onChange={changeField}
-              error={errors.email}
+          {!apiConfig.useMock && (
+            <p className="api-development-note">
+              Development profiles are not password protected. Secure sign-in is
+              coming when the authentication API is ready.
+            </p>
+          )}
+          {!apiConfig.useMock && !signingUp && supported.isError && (
+            <ErrorState
+              message={errorMessage(supported.error)}
+              retry={() => {
+                void supported.refetch();
+              }}
             />
-            {signingUp && (
-              <>
+          )}
+          {!apiConfig.useMock && !signingUp ? (
+            <DevelopmentProfiles supported={supported.data} />
+          ) : (
+            <form onSubmit={submit} noValidate>
+              {signingUp && (
                 <Field
-                  name="postcode"
-                  label="Your postcode"
-                  value={fields.postcode}
-                  autoComplete="postal-code"
+                  name="name"
+                  label="Your name"
+                  value={fields.name}
+                  autoComplete="name"
                   onChange={changeField}
-                  error={errors.postcode}
-                  placeholder="EH3 9GD"
+                  error={errors.name}
                 />
-                <div className="postcode-options">
-                  <p>Available in this demo:</p>
-                  {supported.isPending ? (
-                    <span>Loading postcodes…</span>
-                  ) : supported.isError ? (
-                    <p role="alert">
-                      Couldn’t load postcodes.{" "}
-                      <button
-                        type="button"
-                        className="text-button"
-                        onClick={() => {
-                          void supported.refetch();
-                        }}
-                      >
-                        Try again
-                      </button>
+              )}
+              <Field
+                name="email"
+                label="Email address"
+                type="email"
+                value={fields.email}
+                autoComplete="email"
+                onChange={changeField}
+                error={errors.email}
+              />
+              {signingUp && (
+                <>
+                  <Field
+                    name="postcode"
+                    label="Your postcode"
+                    value={fields.postcode}
+                    autoComplete="postal-code"
+                    onChange={changeField}
+                    error={errors.postcode}
+                    placeholder={
+                      apiConfig.useMock
+                        ? "EH3 9GD"
+                        : "Enter a supported postcode"
+                    }
+                    list={apiConfig.useMock ? undefined : "supported-postcodes"}
+                  />
+                  <div className="postcode-options">
+                    <p>
+                      {apiConfig.useMock
+                        ? "Available in this demo:"
+                        : "Supported postcodes include:"}
                     </p>
-                  ) : (
-                    supported.data?.map((postcode) => (
-                      <button
-                        type="button"
-                        className="postcode-chip"
-                        key={postcode}
-                        onClick={() => changeField("postcode", postcode)}
-                      >
-                        {postcode}
-                      </button>
-                    ))
-                  )}
-                  <p className="field-help">
-                    Format alone doesn’t verify that a postcode exists.
-                  </p>
-                </div>
-              </>
-            )}
-            <Field
-              name="password"
-              label="Password"
-              type="password"
-              value={fields.password}
-              autoComplete={signingUp ? "new-password" : "current-password"}
-              onChange={changeField}
-              error={errors.password}
-            />
-            {signingUp && <p className="field-help">At least 8 characters.</p>}
-            {mutation.isError && (
-              <p className="form-error" role="alert">
-                {errorMessage(mutation.error)}
-              </p>
-            )}
-            <button
-              type="submit"
-              className="button button-primary auth-submit"
-              disabled={
-                mutation.isPending || (signingUp && !supported.data?.length)
-              }
-            >
-              {mutation.isPending ? (
-                <>
-                  <LoaderCircle className="spin" size={18} />{" "}
-                  {signingUp ? "Creating your account…" : "Signing you in…"}
-                </>
-              ) : (
-                <>
-                  {signingUp ? "Let’s grow together" : "Sign in"}
-                  <ArrowRight size={19} />
+                    {supported.isPending ? (
+                      <span>Loading postcodes…</span>
+                    ) : supported.isError ? (
+                      <p role="alert">
+                        Couldn&apos;t load postcodes.{" "}
+                        <button
+                          type="button"
+                          className="text-button"
+                          onClick={() => {
+                            void supported.refetch();
+                          }}
+                        >
+                          Try again
+                        </button>
+                      </p>
+                    ) : (
+                      supported.data
+                        ?.slice(0, apiConfig.useMock ? undefined : 8)
+                        .map((postcode) => (
+                          <button
+                            type="button"
+                            className="postcode-chip"
+                            key={postcode}
+                            onClick={() => changeField("postcode", postcode)}
+                          >
+                            {postcode}
+                          </button>
+                        ))
+                    )}
+                    {!apiConfig.useMock && (
+                      <datalist id="supported-postcodes">
+                        {supported.data?.map((postcode) => (
+                          <option key={postcode} value={postcode} />
+                        ))}
+                      </datalist>
+                    )}
+                    <p className="field-help">
+                      Format alone doesn&apos;t verify that a postcode exists.
+                    </p>
+                  </div>
                 </>
               )}
-            </button>
-          </form>
+              {apiConfig.useMock && (
+                <Field
+                  name="password"
+                  label="Password"
+                  type="password"
+                  value={fields.password}
+                  autoComplete={signingUp ? "new-password" : "current-password"}
+                  onChange={changeField}
+                  error={errors.password}
+                />
+              )}
+              {signingUp && apiConfig.useMock && (
+                <p className="field-help">At least 8 characters.</p>
+              )}
+              {mutation.isError && (
+                <p className="form-error" role="alert">
+                  {errorMessage(mutation.error)}
+                </p>
+              )}
+              <button
+                type="submit"
+                className="button button-primary auth-submit"
+                disabled={
+                  mutation.isPending || (signingUp && !supported.data?.length)
+                }
+              >
+                {mutation.isPending ? (
+                  <>
+                    <LoaderCircle className="spin" size={18} />{" "}
+                    {signingUp ? "Creating your account…" : "Signing you in…"}
+                  </>
+                ) : (
+                  <>
+                    {signingUp ? "Let's grow together" : "Sign in"}
+                    <ArrowRight size={19} />
+                  </>
+                )}
+              </button>
+            </form>
+          )}
           <p className="auth-switch">
             {signingUp
               ? "Already part of the community?"
               : "New to the neighbourhood?"}{" "}
             <Link href={signingUp ? "/login" : "/signup"}>
-              {signingUp ? "Sign in" : "Join us"} <ArrowUp />
+              {signingUp
+                ? apiConfig.useMock
+                  ? "Sign in"
+                  : "Choose a profile"
+                : "Join us"}{" "}
+              <ArrowUp />
             </Link>
           </p>
           {demo.data && (
@@ -342,9 +380,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           )}
         </section>
       </div>
-      <footer className="auth-footer">
-        Made for your neighbourhood. Built for a greener tomorrow.
-      </footer>
+      <footer className="auth-footer">Built by Team FlickFlack</footer>
     </main>
   );
 }
@@ -361,6 +397,7 @@ function Field({
   autoComplete,
   error,
   placeholder,
+  list,
   onChange,
 }: {
   name: string;
@@ -370,6 +407,7 @@ function Field({
   autoComplete: string;
   error?: string;
   placeholder?: string;
+  list?: string;
   onChange: (name: string, value: string) => void;
 }) {
   return (
@@ -382,6 +420,7 @@ function Field({
         value={value}
         autoComplete={autoComplete}
         placeholder={placeholder}
+        list={list}
         onChange={(event) => onChange(name, event.target.value)}
         aria-invalid={Boolean(error)}
         aria-describedby={error ? `${name}-error` : undefined}

@@ -278,8 +278,7 @@ select {
 .brand-symbol {
   width: 42px;
   height: 42px;
-  background: var(--color-primary);
-  color: var(--color-accent);
+  background: var(--color-surface);
   display: grid;
   place-items: center;
   border-radius: 14px 14px 14px 5px;
@@ -325,8 +324,7 @@ select {
 }
 .app-header .brand-symbol,
 .auth-header .brand-symbol {
-  background: #ffffff24;
-  color: var(--color-surface);
+  background: var(--color-surface);
 }
 .auth-independent {
   font-size: 11px;
@@ -2338,4 +2336,141 @@ textarea[aria-invalid="true"] {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* Supplied icon is shared by the wordmark, browser icon and installed app. */
+.brand-symbol > img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+.api-development-note {
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--color-cream, #f3f0e5);
+  font-size: 13px;
+  line-height: 1.5;
+  margin-bottom: 20px;
+}
+.development-profiles label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.development-profiles select {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #d7ddcf;
+  border-radius: 8px;
+  background: white;
+  color: inherit;
+}
+.score-pending {
+  gap: 16px;
+  align-items: center;
+}
+.score-pending p {
+  font-size: 13px;
+  margin-top: 6px;
+}
+
+/* Community leaderboard */
+.leaderboard-trigger {
+  width: 100%;
+  margin: 0 0 20px;
+  font-size: 12px;
+  gap: 9px;
+}
+.leaderboard-trigger > svg:last-child { margin-left: auto; }
+.leaderboard-modal { width: min(600px, calc(100% - 32px)); }
+.leaderboard-kicker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  color: var(--color-secondary);
+}
+.leaderboard-modal > h2 { padding-right: 15px; font-size: 27px; }
+.leaderboard-subtitle {
+  margin: 10px 0 24px;
+  font-size: 13px;
+  color: var(--color-muted);
+}
+.leaderboard-position {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  border: 1px solid var(--color-border);
+  background: var(--color-soft-green);
+  border-radius: 12px;
+  padding: 18px 22px;
+  margin-bottom: 22px;
+}
+.leaderboard-position span {
+  display: block;
+  color: var(--color-muted);
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+.leaderboard-position strong {
+  font-size: 28px;
+  color: var(--color-primary);
+}
+.leaderboard-table-wrap {
+  max-height: min(43dvh, 360px);
+  overflow: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+}
+.leaderboard-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  text-align: left;
+}
+.leaderboard-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--color-background);
+  color: var(--color-muted);
+  z-index: 1;
+  font-size: 11px;
+}
+.leaderboard-table th, .leaderboard-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-border);
+}
+.leaderboard-table tbody th {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.leaderboard-table th:first-child, .leaderboard-table td:first-child { width: 70px; }
+.leaderboard-table th:last-child, .leaderboard-table td:last-child { text-align: right; }
+.leaderboard-table tbody tr:last-child > * { border-bottom: 0; }
+.leaderboard-current-user { background: var(--color-soft-green); color: var(--color-primary); }
+.leaderboard-you {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 6px;
+  background: var(--color-primary);
+  color: var(--color-surface);
+  border-radius: 6px;
+  font-size: 9px;
+}
+.leaderboard-empty { padding: 25px 0; text-align: center; }
+.leaderboard-empty > svg { color: var(--color-secondary); margin-bottom: 12px; }
+.leaderboard-empty h3 { font-size: 20px; margin-bottom: 10px; }
+.leaderboard-empty p, .leaderboard-demo-note {
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+.leaderboard-demo-note { margin-top: 16px; }
+.leaderboard-refresh { margin-top: 22px; }
+@media (max-width: 600px) {
+  .leaderboard-modal { padding: 26px 18px; }
+  .leaderboard-modal > h2 { font-size: 24px; }
+  .leaderboard-table th, .leaderboard-table td { padding: 12px 10px; }
+  .leaderboard-position { padding: 15px; }
 }

@@ -1,8 +1,8 @@
 import Link from "next/link";
+import Image from "next/image";
 import {
   ArrowRight,
   LoaderCircle,
-  Sprout,
   Wind,
   Zap,
   Trees,
@@ -20,15 +20,17 @@ export function Wordmark({ compact = false }: { compact?: boolean }) {
       aria-label="Our Patch home"
     >
       <span className="brand-symbol">
-        <Sprout size={26} strokeWidth={2.3} />
+        <Image
+          src="/brand/icon.png"
+          width={48}
+          height={48}
+          alt=""
+          unoptimized
+        />
       </span>
       <span>
-        <span className="wordmark-name">
-          Our Patch
-        </span>
-        <span className="wordmark-caption">
-          GROW YOUR STREET TOGETHER
-        </span>
+        <span className="wordmark-name">Our Patch</span>
+        <span className="wordmark-caption">GROW YOUR STREET TOGETHER</span>
       </span>
     </Link>
   );
