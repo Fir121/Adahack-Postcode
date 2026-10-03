@@ -143,7 +143,7 @@ export function metricIndicators(
   const air = metric.air_quality;
   const shared = {
     status: "unknown" as const,
-    source: "Our Patch metrics API",
+    source: "carbonintensity.org" as const,
     provenance: "measured" as const,
   };
   return [
@@ -171,11 +171,12 @@ export function metricIndicators(
       type: "air_quality",
       label: "Air quality",
       value: air ?? undefined,
+      source: "air-quality-api.open-meteo.com" as const,
       unit: "index",
       displayValue: air == null ? "Unavailable" : `${air} / 10`,
       statusLabel: air == null ? "Unavailable" : `${air} / 10`,
       description:
-        "Air quality index reported for this postcode: 1 is low and 10 is very high. Reporting time and source details are not supplied yet.",
+        "Air quality index reported for this postcode: 1 is low and 10 is very high.",
     },
   ];
 }

@@ -180,17 +180,22 @@ export function CommunitySidebar(props: SidebarProps) {
           )}
           <div className="indicator-heading">
             <h3>How&apos;s your postcode?</h3>
-            <span title="Environmental data and community contributions are tracked separately">
-              <Info size={15} />
-            </span>
+            <button
+              type="button"
+              className="sidebar-tooltip-trigger"
+              aria-label="About postcode data"
+              aria-describedby="postcode-data-tooltip"
+            >
+              <Info size={15} aria-hidden="true" />
+              <span
+                id="postcode-data-tooltip"
+                role="tooltip"
+                className="sidebar-tooltip"
+              >
+                Data from public sources, updated periodically
+              </span>
+            </button>
           </div>
-          <p className="indicator-subtitle">
-            {community.indicators.some(
-              (indicator) => indicator.provenance === "mock",
-            )
-              ? "Data from public sources, updated periodically."
-              : "Values reported for this postcode."}
-          </p>
           {community.indicators.length ? (
             <div className="indicator-list">
               {community.indicators.map((indicator) => (
@@ -396,7 +401,22 @@ function ScoreCard({ score, change }: { score: number; change?: number }) {
       </div>
       <div className="score-copy">
         <span className="score-title">
-          Green Score <Sprout size={16} />
+          Green Score
+          <button
+            type="button"
+            className="sidebar-tooltip-trigger"
+            aria-label="About Green Score"
+            aria-describedby="green-score-tooltip"
+          >
+            <Sprout size={16} aria-hidden="true" />
+            <span
+              id="green-score-tooltip"
+              role="tooltip"
+              className="sidebar-tooltip"
+            >
+              Caclulated from community involvement and green outcomes
+            </span>
+          </button>
         </span>
         <p>
           Small actions.
