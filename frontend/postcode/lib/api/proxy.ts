@@ -72,6 +72,7 @@ export async function proxyApiRequest(
       for (const filter of ["date", "user_id", "task_id"]) {
         if (incoming.has(filter)) query.set(filter, incoming.get(filter)!);
       }
+    log("info", { event: "upstream_request_started" });
     const response = await fetch(
       upstream + "/" + path + (query.size ? "?" + query.toString() : ""),
       {
@@ -116,6 +117,28 @@ export async function proxyApiRequest(
         },
         { status, headers },
       );
+    }
+    if (body) {
+      try {
+        JSON.parse(body);
+      } catch {
+        const status = response.status >= 400 ? response.status : 502;
+        log("error", {
+          event: "upstream_invalid_json",
+          status,
+          upstream_status: response.status,
+          content_type: contentType,
+        });
+        return Response.json(
+          {
+            message:
+              "The development API returned invalid JSON. Please try again.",
+            code: "UPSTREAM_INVALID_JSON",
+            requestId,
+          },
+          { status, headers },
+        );
+      }
     }
     log(
       response.status >= 500

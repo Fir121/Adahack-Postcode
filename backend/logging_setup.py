@@ -77,6 +77,7 @@ def configure_logging(app):
         supplied = request.headers.get("X-Request-ID", "")
         g.request_id = supplied if re.fullmatch(r"[A-Za-z0-9_-]{1,64}", supplied) else str(uuid.uuid4())
         g.request_started = time.monotonic()
+        logger.info("request_started")
 
     @app.after_request
     def finish_request(response):
