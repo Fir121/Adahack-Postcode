@@ -20,7 +20,7 @@ import type {
   PostcodeIndicator,
   Task,
 } from "@/types/domain";
-import { indicatorStatus } from "@/lib/scoring";
+import { formatGreenScore, indicatorStatus } from "@/lib/scoring";
 import { weakestIndicator } from "@/lib/tasks";
 import { dateLabel } from "@/lib/utils";
 import { IndicatorIcon } from "@/components/ui";
@@ -328,7 +328,12 @@ export function CommunitySidebar(props: SidebarProps) {
                       )}
                     </span>
                     <strong>
-                      {stat.value}
+                      {stat.key === "points" && typeof stat.value === "number"
+                        ? stat.value.toLocaleString("en-GB", {
+                            minimumFractionDigits: 1,
+                            maximumFractionDigits: 1,
+                          })
+                        : stat.value}
                       {stat.unit && <small> {stat.unit}</small>}
                     </strong>
                     <span>{stat.label}</span>
@@ -362,7 +367,7 @@ function ScoreCard({ score, change }: { score: number; change?: number }) {
     let frame: number;
     function tick(now: number) {
       const fraction = Math.min(1, (now - start) / 600);
-      const next = Math.round(initial + (score - initial) * fraction);
+      const next = initial + (score - initial) * fraction;
       setDisplay(next);
       from.current = next;
       if (fraction < 1) frame = requestAnimationFrame(tick);
@@ -385,7 +390,7 @@ function ScoreCard({ score, change }: { score: number; change?: number }) {
           />
         </svg>
         <div>
-          <strong>{display}</strong>
+          <strong>{formatGreenScore(display)}</strong>
           <span>OUT OF 100</span>
         </div>
       </div>

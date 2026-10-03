@@ -17,6 +17,7 @@ import { ApiError } from "@/lib/api/client";
 import { apiConfig } from "@/lib/api/config";
 import { validateProof } from "@/lib/tasks";
 import { dateLabel, dayKey, errorMessage } from "@/lib/utils";
+import { formatGreenScore } from "@/lib/scoring";
 import { useTask } from "@/hooks/queries";
 import { ErrorState, LoadingState, IndicatorIcon } from "@/components/ui";
 
@@ -197,7 +198,7 @@ export function CompletionModal({
           {approved && (
             <div className="success-score">
               <strong>
-                {mutation.data.progress.score}
+                {formatGreenScore(mutation.data.progress.score)}
                 <small>/100</small>
               </strong>
               <span>Community Green Score</span>

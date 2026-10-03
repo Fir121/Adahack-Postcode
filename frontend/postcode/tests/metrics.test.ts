@@ -14,6 +14,8 @@ import {
   getPostcodeMetrics,
 } from "../lib/api/metrics";
 import { weakestIndicator } from "../lib/tasks";
+import { formatGreenScore } from "../lib/scoring";
+import { houseSaturation, treeCount } from "../lib/map/decorations";
 
 const coordinate = {
   postcode: "EH9 1AB",
@@ -26,6 +28,85 @@ const detail = {
   air_quality: 3,
   users: [{ user_id: "a", name: "Alex", points: 12 }],
 };
+test("backend score takes precedence over point totals and keeps one decimal", () => {
+  const progress = metricProgress({
+    postcode: coordinate.postcode,
+    score: 66.66666666666666,
+    total_points: 2,
+  });
+  assert.equal(progress.score, 66.7);
+  assert.equal(progress.totalPoints, 2);
+  assert.equal(
+    metricProgress({ postcode: coordinate.postcode, score: 0 }).score,
+    0,
+  );
+  assert.throws(
+    () =>
+      adaptPostcodeMetric({ postcode: coordinate.postcode, score: Infinity }),
+    /invalid Green Score/,
+  );
+  assert.throws(
+    () => adaptPostcodeMetric({ postcode: "total_points", score: 0 }),
+    /invalid metric postcode/,
+  );
+});
+test("live-shaped malformed list rows cannot block a valid postcode detail score or fabricate neighbouring scores", async (t) => {
+  const previous = apiConfig.useMock;
+  apiConfig.useMock = false;
+  t.mock.method(globalThis, "fetch", async (url: string) =>
+    Response.json(
+      url.endsWith("/coordinates/")
+        ? [coordinate]
+        : url.includes("/coordinates/")
+          ? coordinate
+          : url.endsWith("/metrics/")
+            ? [
+                { postcode: "total_points", score: 0 },
+                { postcode: "total_points", score: 0 },
+              ]
+            : { ...detail, score: 66.66666666666666 },
+    ),
+  );
+  try {
+    const communities = await getCommunities();
+    assert.equal(communities[0].progress.scoreAvailable, false);
+    const selected = await getCommunity("eh9-1ab");
+    assert.equal(selected.progress.score, 66.7);
+    assert.equal(selected.progress.scoreAvailable, true);
+    assert.equal(selected.dataWarnings?.score, undefined);
+    assert.equal(selected.indicators[1].displayValue, "3 / 10");
+    assert.deepEqual(selected.progress.stats, []);
+  } finally {
+    apiConfig.useMock = previous;
+  }
+});
+test("fractional metrics round to one decimal consistently across display and map scenes", () => {
+  const metric = adaptPostcodeMetric({
+    postcode: coordinate.postcode,
+    total_points: 10.146,
+  });
+  const progress = metricProgress(metric);
+  assert.equal(progress.score, 10.1);
+  assert.equal(progress.totalPoints, 10.146);
+  assert.equal(formatGreenScore(progress.score), "10.1");
+  assert.equal(formatGreenScore(0), "0.0");
+  assert.equal(formatGreenScore(100), "100.0");
+  assert.equal(treeCount(progress.score), 2);
+  assert.ok(Math.abs(houseSaturation(progress.score) - 0.101) < 1e-12);
+  assert.throws(
+    () =>
+      adaptPostcodeMetric({
+        postcode: coordinate.postcode,
+        total_points: Infinity,
+      }),
+    /invalid community points/,
+  );
+  assert.throws(
+    () =>
+      adaptPostcodeMetric({ postcode: coordinate.postcode, total_points: NaN }),
+    /invalid community points/,
+  );
+});
 test("postcode metrics join by normalized postcode, preserve full totals and bound scene scores", async (t) => {
   const previous = apiConfig.useMock;
   apiConfig.useMock = false;

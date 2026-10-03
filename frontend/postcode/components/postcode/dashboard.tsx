@@ -23,6 +23,7 @@ import {
   useTasks,
 } from "@/hooks/queries";
 import { errorMessage } from "@/lib/utils";
+import { formatGreenScore } from "@/lib/scoring";
 import { isTaskAvailable, recommendTasks } from "@/lib/tasks";
 import { CommunitySidebar, type SidebarView } from "./community-sidebar";
 import { LeaderboardModal } from "./leaderboard-modal";
@@ -257,7 +258,7 @@ export function Dashboard() {
               {current.postcode} · Green Score{" "}
               {current.progress.scoreAvailable === false
                 ? "pending"
-                : current.progress.score}
+                : formatGreenScore(current.progress.score)}
             </span>
             {expanded ? <ArrowDown size={16} /> : <ArrowUp size={16} />}
           </button>

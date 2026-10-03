@@ -91,14 +91,26 @@ export async function getCommunity(id: string): Promise<PostcodeCommunity> {
     metrics.status === "fulfilled"
       ? metrics.value.find((item) => item.postcode === community.postcode)
       : undefined;
+  const detailScore =
+    detail.status === "fulfilled" ? detail.value.score : undefined;
+  const progress =
+    detailScore != null
+      ? metricProgress({
+          postcode: community.postcode,
+          score: detailScore,
+          total_points: metric?.total_points,
+        })
+      : metric
+        ? metricProgress(metric)
+        : community.progress;
   return {
     ...community,
-    progress: metric ? metricProgress(metric) : community.progress,
+    progress,
     indicators:
       detail.status === "fulfilled" ? metricIndicators(detail.value) : [],
     dataWarnings: {
       score:
-        metrics.status === "rejected"
+        progress.scoreAvailable === false && metrics.status === "rejected"
           ? errorMessage(metrics.reason)
           : undefined,
       indicators:

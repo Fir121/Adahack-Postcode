@@ -2,7 +2,11 @@ import type { IndicatorStatus } from "@/types/domain";
 
 export function normalizeScore(value: number, max = 100): number {
   if (!Number.isFinite(value) || !Number.isFinite(max) || max <= 0) return 0;
-  return Math.round(Math.max(0, Math.min(100, (value / max) * 100)));
+  return Math.round(Math.max(0, Math.min(100, (value / max) * 100)) * 10) / 10;
+}
+
+export function formatGreenScore(score: number): string {
+  return normalizeScore(score).toFixed(1);
 }
 
 export function greenLevel(score: number): number {

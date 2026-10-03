@@ -30,7 +30,7 @@ test("completion grows the tree count and adjusts house saturation", async ({
     localStorage.setItem(key, JSON.stringify(db));
   });
   await page.reload();
-  await expect(page.locator(".score-ring strong")).toHaveText("70");
+  await expect(page.locator(".score-ring strong")).toHaveText("70.0");
   await expect(page.locator(".map-decoration")).toHaveCount(8);
   const house = page.locator(
     '.map-decoration[data-asset-type="house"] .map-sprite',
@@ -51,7 +51,7 @@ test("completion grows the tree count and adjusts house saturation", async ({
   await dialog
     .getByRole("button", { name: "Back to my neighbourhood" })
     .click();
-  await expect(page.locator(".score-ring strong")).toHaveText("71");
+  await expect(page.locator(".score-ring strong")).toHaveText("71.0");
   await expect(page.locator(".map-decoration")).toHaveCount(9);
   await expect(house).toHaveCSS("filter", /saturate\(0\.71\)/);
   await expect
@@ -81,7 +81,9 @@ test("one house stays above its label and 1–10 balanced trees fit on mobile", 
       localStorage.setItem(key, JSON.stringify(db));
     }, score);
     await page.reload();
-    await expect(page.locator(".score-ring strong")).toHaveText(String(score));
+    await expect(page.locator(".score-ring strong")).toHaveText(
+      score.toFixed(1),
+    );
   }
   const house = page.locator('.map-decoration[data-asset-type="house"]');
   const trees = page.locator('.map-decoration[data-asset-type="tree"]');
@@ -226,7 +228,7 @@ test("completion updates score, history, and map while measured values remain un
   );
   await demoLogin(page);
   expect((await worker).ok()).toBe(true);
-  await expect(page.locator(".score-ring strong")).toHaveText("68");
+  await expect(page.locator(".score-ring strong")).toHaveText("68.0");
   await expect(page.locator(".map-postcode-label.selected")).toContainText(
     "EH3 9GD",
   );
@@ -240,7 +242,7 @@ test("completion updates score, history, and map while measured values remain un
   await page.getByRole("button", { name: "Postcode overview" }).click();
   await page.getByRole("button", { name: /Air quality.*Doing well/ }).click();
   await page.getByRole("button", { name: /Explore EH3 9GD/ }).click();
-  await expect(page.locator(".score-ring strong")).toHaveText("68");
+  await expect(page.locator(".score-ring strong")).toHaveText("68.0");
   await page.getByRole("button", { name: "Take this action" }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
@@ -260,7 +262,7 @@ test("completion updates score, history, and map while measured values remain un
   await dialog
     .getByRole("button", { name: "Back to my neighbourhood" })
     .click();
-  await expect(page.locator(".score-ring strong")).toHaveText("69");
+  await expect(page.locator(".score-ring strong")).toHaveText("69.0");
   await expect(
     page.locator('.map-decoration[data-asset-type="house"]'),
   ).toHaveCount(1);
@@ -305,7 +307,7 @@ test("neighbouring communities show their own house and score-based trees when s
   ).toHaveCount(0);
   await page.getByRole("button", { name: /Explore EH3 9FG/ }).click();
   await expect(page.locator(".sidebar-identity h2")).toHaveText("EH3 9FG");
-  await expect(page.locator(".score-ring strong")).toHaveText("82");
+  await expect(page.locator(".score-ring strong")).toHaveText("82.0");
   await expect(page.locator(".map-postcode-label.selected")).toContainText(
     "EH3 9FG",
   );

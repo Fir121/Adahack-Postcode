@@ -1,3 +1,4 @@
+import { formatGreenScore } from "../../lib/scoring";
 import { dayKey } from "../../lib/utils";
 import { expect, test, type Page } from "@playwright/test";
 test.skip(
@@ -140,7 +141,7 @@ test("live-shaped metrics drive postcode scores, indicators, centroids and tasks
   await page.getByLabel("Email address").fill(profile.email);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page.locator(".sidebar-identity h2")).toHaveText("EH9 1AB");
-  await expect(page.locator(".score-ring strong")).toHaveText("10");
+  await expect(page.locator(".score-ring strong")).toHaveText("10.0");
   await expect(page.locator(".map-postcode-label")).toHaveCount(2);
   await expect(page.locator(".map-postcode-label.selected")).toContainText(
     "10",
@@ -174,7 +175,7 @@ test("live-shaped metrics drive postcode scores, indicators, centroids and tasks
   await expect(dialog).not.toBeVisible();
   await page.getByLabel("Explore a postcode").selectOption("eh9-1ad");
   await expect(page.locator(".sidebar-identity h2")).toHaveText("EH9 1AD");
-  await expect(page.locator(".score-ring strong")).toHaveText("80");
+  await expect(page.locator(".score-ring strong")).toHaveText("80.0");
   await expect(
     page.locator('.map-decoration[data-asset-type="tree"]'),
   ).toHaveCount(8);
@@ -284,15 +285,21 @@ test("real server smoke: email login, metrics, activity history and community ra
   await page.getByLabel("Email address").fill(users[0].email);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page.locator(".sidebar-identity h2")).toBeVisible();
-  const scores = await (await page.request.get("/api/backend/metrics/")).json();
-  const score = scores.find(
-    (metric: { postcode: string; total_points: number }) =>
-      metric.postcode === users[0].postcode,
-  );
-  if (score)
+  const detail = await (
+    await page.request.get(
+      "/api/backend/metrics/" + encodeURIComponent(users[0].postcode),
+    )
+  ).json();
+  if (typeof detail.score === "number")
     await expect(page.locator(".score-ring strong")).toHaveText(
-      String(Math.min(100, score.total_points)),
+      formatGreenScore(detail.score),
     );
+  await expect(
+    page
+      .locator(".sidebar-content")
+      .getByRole("alert")
+      .filter({ hasText: "Green Scores couldn't load" }),
+  ).toHaveCount(0);
   await page.getByRole("button", { name: "My community leaderboard" }).click();
   await expect(
     page.getByRole("dialog").locator(".leaderboard-current-user"),
@@ -313,6 +320,45 @@ test("real server smoke: email login, metrics, activity history and community ra
     );
   else await expect(page.locator(".empty-history")).toBeVisible();
   await expect(page.locator(".account-page [role=alert]")).toHaveCount(0);
+});
+
+test("a valid detail score loads despite malformed live-shaped all-postcode metric rows", async ({
+  page,
+}) => {
+  await fixtures(page);
+  await page.route("**/api/backend/metrics/", (route) =>
+    route.fulfill({
+      json: [
+        { postcode: "total_points", score: 0 },
+        { postcode: "total_points", score: 0 },
+      ],
+    }),
+  );
+  await page.route("**/api/backend/metrics/EH9%201AB", (route) =>
+    route.fulfill({
+      json: {
+        postcode: profile.postcode,
+        score: 66.66666666666666,
+        carbon_intensity: 0,
+        air_quality: 3,
+        users: [{ user_id: profile.user_id, name: profile.name, points: 2 }],
+      },
+    }),
+  );
+  await page.goto("/login");
+  await page.getByLabel("Email address").fill(profile.email);
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(page.locator(".score-ring strong")).toHaveText("66.7");
+  await expect(page.locator(".map-postcode-label.selected")).toHaveText(
+    "EH9 1AB · 66.7",
+  );
+  await expect(
+    page.locator('.map-decoration[data-asset-type="tree"]'),
+  ).toHaveCount(7);
+  await expect(page.locator(".sidebar-content [role=alert]")).toHaveCount(0);
+  await expect(
+    page.locator(".map-postcode-label:not(.selected)"),
+  ).toContainText("Pending");
 });
 
 test("metrics failures keep map and actions usable, show errors, and recover on retry", async ({
@@ -346,11 +392,52 @@ test("metrics failures keep map and actions usable, show errors, and recover on 
     .locator(".sidebar-content")
     .getByRole("button", { name: "Try again", exact: true })
     .click();
-  await expect(page.locator(".score-ring strong")).toHaveText("10");
+  await expect(page.locator(".score-ring strong")).toHaveText("10.0");
   await expect(page.locator(".sidebar-content [role=alert]")).toHaveCount(0);
   await expect(
     page.locator(".indicator-row").filter({ hasText: "Air quality" }),
   ).toContainText("3 / 10");
+});
+
+test("float Green Scores display one decimal across the sidebar, map and mobile drawer after refresh", async ({
+  page,
+}) => {
+  await fixtures(page);
+  let total = 10.146;
+  await page.route("**/api/backend/metrics/", (route) =>
+    route.fulfill({
+      json: [{ postcode: profile.postcode, total_points: total }],
+    }),
+  );
+  await page.goto("/login");
+  await page.getByLabel("Email address").fill(profile.email);
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(page.locator(".score-ring strong")).toHaveText("10.1");
+  await expect(page.locator(".map-postcode-label.selected")).toHaveText(
+    "EH9 1AB · 10.1",
+  );
+  await expect(
+    page.locator('.map-decoration[data-asset-type="tree"]'),
+  ).toHaveCount(2);
+  total = 27.86;
+  await page.getByRole("button", { name: "Take this action" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("checkbox").check();
+  await dialog.getByRole("button", { name: "Record action" }).click();
+  await expect(
+    dialog.getByRole("heading", { name: "Action recorded." }),
+  ).toBeVisible();
+  await dialog
+    .getByRole("button", { name: "Back to my neighbourhood" })
+    .click();
+  await expect(page.locator(".score-ring strong")).toHaveText("27.9");
+  await expect(page.locator(".map-postcode-label.selected")).toHaveText(
+    "EH9 1AB · 27.9",
+  );
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(
+    page.getByRole("button", { name: /EH9 1AB · Green Score 27\.9/ }),
+  ).toBeVisible();
 });
 
 test("postcode environmental values handle zero carbon and unavailable air index without false activity totals", async ({
@@ -582,7 +669,7 @@ test("recording targets the dated activity and refreshes metrics, history, leade
   await dialog
     .getByRole("button", { name: "Back to my neighbourhood" })
     .click();
-  await expect(page.locator(".score-ring strong")).toHaveText("11");
+  await expect(page.locator(".score-ring strong")).toHaveText("11.0");
   await expect(
     page.locator('.map-decoration[data-asset-type="tree"]'),
   ).toHaveCount(2);

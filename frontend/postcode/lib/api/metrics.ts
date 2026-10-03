@@ -16,10 +16,24 @@ function metricPostcode(value: unknown): string {
   return normalizePostcode(value);
 }
 export function adaptPostcodeMetric(dto: PostcodeMetricDto): PostcodeMetricDto {
-  if (!dto || !Number.isSafeInteger(dto.total_points) || dto.total_points < 0)
+  if (!dto)
     throw new ApiError("The API returned invalid community points.", 502);
+  const postcode = metricPostcode(dto.postcode);
+  if (dto.score != null && (!Number.isFinite(dto.score) || dto.score < 0))
+    throw new ApiError("The API returned an invalid Green Score.", 502);
+  if (
+    dto.total_points !== undefined &&
+    (!Number.isFinite(dto.total_points) || dto.total_points < 0)
+  )
+    throw new ApiError("The API returned invalid community points.", 502);
+  if (dto.score == null && dto.total_points === undefined)
+    throw new ApiError(
+      "The API did not return a Green Score or community points.",
+      502,
+    );
   return {
-    postcode: metricPostcode(dto.postcode),
+    postcode,
+    score: dto.score,
     total_points: dto.total_points,
   };
 }
@@ -44,6 +58,8 @@ export function adaptDetailMetric(
       "The API returned metrics for a different postcode.",
       502,
     );
+  if (dto.score != null && (!Number.isFinite(dto.score) || dto.score < 0))
+    throw new ApiError("The API returned an invalid Green Score.", 502);
   if (
     dto.carbon_intensity != null &&
     (!Number.isFinite(dto.carbon_intensity) || dto.carbon_intensity < 0)
@@ -96,8 +112,9 @@ export async function getPostcodeDetailMetric(
   );
 }
 export function metricProgress(metric: PostcodeMetricDto): CommunityProgress {
-  // POC display rule: one awarded point equals one score point, on the existing 0–100 scale.
-  const score = normalizeScore(metric.total_points);
+  const validated = adaptPostcodeMetric(metric);
+  // Prefer the backend's Green Score. Old Swagger responses retain the POC points fallback.
+  const score = normalizeScore(validated.score ?? validated.total_points!);
   return {
     scoreAvailable: true,
     score,
@@ -105,15 +122,18 @@ export function metricProgress(metric: PostcodeMetricDto): CommunityProgress {
     totalPoints: metric.total_points,
     totalActions: 0,
     activityByIndicator: {},
-    stats: [
-      {
-        key: "points",
-        label: "Community points",
-        value: metric.total_points,
-        icon: "sprout",
-        supportingText: "Total reported by the metrics API",
-      },
-    ],
+    stats:
+      validated.total_points === undefined
+        ? []
+        : [
+            {
+              key: "points",
+              label: "Community points",
+              value: validated.total_points,
+              icon: "sprout",
+              supportingText: "Total reported by the metrics API",
+            },
+          ],
   };
 }
 export function metricIndicators(

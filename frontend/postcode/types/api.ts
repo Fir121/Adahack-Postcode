@@ -33,7 +33,9 @@ export interface ActivityDto extends ActivityInputDto {
 }
 export interface PostcodeMetricDto {
   postcode: string;
-  total_points: number;
+  // The live API now exposes score; retain total_points for the supplied Swagger contract.
+  score?: number | null;
+  total_points?: number;
 }
 export interface UserMetricDto {
   user_id: string;
@@ -42,6 +44,7 @@ export interface UserMetricDto {
 }
 export interface PostcodeDetailMetricDto {
   postcode: string;
+  score?: number | null;
   carbon_intensity?: number | null;
   air_quality?: number | null;
   users?: UserMetricDto[];

@@ -24,7 +24,7 @@ import {
   postcodeSceneLayout,
 } from "@/lib/map/decorations";
 import { colourStreets, readStreetPalette } from "@/lib/map/basemap";
-import { greenLevel } from "@/lib/scoring";
+import { formatGreenScore, greenLevel } from "@/lib/scoring";
 import { createAssetVisual } from "@/lib/map/asset-visual";
 import "maplibre-gl/dist/maplibre-gl.css";
 
@@ -177,10 +177,10 @@ export default function CommunityMap(props: MapProps) {
         element.style.setProperty("--postcode-color", color);
         element.style.setProperty("--postcode-ink", scoreTextColor(color));
         element.dataset.communityId = community.id;
-        element.textContent = `${community.postcode} · ${hasScore ? community.progress.score : "Pending"}`;
+        element.textContent = `${community.postcode} · ${hasScore ? formatGreenScore(community.progress.score) : "Pending"}`;
         element.setAttribute(
           "aria-label",
-          `Explore ${community.postcode}, Green Score ${hasScore ? community.progress.score : "pending"}`,
+          `Explore ${community.postcode}, Green Score ${hasScore ? formatGreenScore(community.progress.score) : "pending"}`,
         );
         element.setAttribute(
           "aria-pressed",

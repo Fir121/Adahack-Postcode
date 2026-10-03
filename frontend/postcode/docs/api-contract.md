@@ -1,6 +1,6 @@
 # Our Patch backend integration
 
-The implemented transport contract is the [updated Swagger spec](backend-swagger.json).
+The transport contract starts from the [supplied Swagger spec](backend-swagger.json), with the live API’s added `score` fields described below.
 Default upstream: https://chivalry-handlebar-hangover.ngrok-free.dev/api/v1.
 API_BASE_URL includes /api/v1; browser requests use the same-origin /api/backend proxy.
 
@@ -10,8 +10,8 @@ API_BASE_URL includes /api/v1; browser requests use the same-origin /api/backend
 | --- | --- |
 | GET /coordinates/ | Map centroids and supported signup postcodes |
 | GET /coordinates/{postcode} | Selected postcode details/focus |
-| GET /metrics/ | Join total_points to coordinate labels by normalized postcode; Green Score, house saturation and tree count |
-| GET /metrics/{postcode} | Electricity carbon intensity, air quality index and community leaderboard |
+| GET /metrics/ | Join score (or legacy total_points) to coordinate labels by normalized postcode |
+| GET /metrics/{postcode} | Authoritative postcode score, electricity carbon intensity, air quality index and community leaderboard |
 | GET /tasks, GET /tasks/{task_id} | Action catalogue, fresh details and points before recording |
 | GET /users, GET /users/{user_id} | Email login, duplicate-email precheck, profile restoration and account details |
 | POST /users | Signup with exactly name, email and postcode |
@@ -25,7 +25,9 @@ Activity writes no longer use /activities/{user_id}; the date/user/task triple i
 
 ## Green Score and environmental values
 
-The metric list returns total_points rather than a normalized green_score or scale. The POC display rule is **one point = one Green Score point, capped at 100**. The full uncapped total appears separately under Community points. This is a frontend display convention, not a backend formula. Zero is a valid supplied score; a postcode absent from the list remains pending rather than silently acquiring zero. Map shading and selected-scene tree count/saturation use the displayed 0–100 score. Source animations remain independent of score and respect reduced motion.
+The live API now returns **score**, including on GET /metrics/{postcode}. This value takes precedence over legacy total_points, because a backend-calculated Green Score is distinct from awarded points. Scores accept floats, clamp to the existing 0–100 visual scale, and round/display one decimal (66.666… → 66.7 and 10 → 10.0). Legacy responses containing only total_points retain the earlier one-point-per-score-point convention. Raw point totals are preserved and shown separately when actually supplied; a score is not fabricated into a points total. Zero is a valid supplied score.
+
+Selected postcode details prefer their own score and can display it even when the all-postcode metrics list fails validation. A live GET /metrics/ response contained repeated {"postcode":"total_points","score":0} entries: these are invalid postcode associations and must be corrected by the backend. The frontend keeps affected unselected map labels pending, then shows a postcode's valid detail score when selected. It does not assign malformed list entries to arbitrary coordinate rows.
 
 Coordinates and metrics load concurrently. Selected postcode details fetch the point, score list and postcode metric concurrently. Metric failures keep the map and task flow available, leave failed values unavailable, and show errors with retry. Supported signup postcodes depend only on coordinates.
 
@@ -55,7 +57,7 @@ The old proposed /postcodes/{postcode}/leaderboard endpoint and per-member activ
 
 | Capability | Remaining contract/API work |
 | --- | --- |
-| Score semantics | Backend-defined score scale, conversion from total points, caps/period and monthly changes; current POC convention is explicit above |
+| Score semantics | Document the new score fields/calculation, 0–100 scale, period and monthly changes in Swagger; fix GET /metrics/ to return real postcode values |
 | More environmental detail | Additional indicators if desired; statuses/thresholds, trends, timestamps, coverage and underlying sources for existing values |
 | Community statistics | Actual action/member aggregates and reporting periods beyond the supplied total points |
 | Proof verification | Text/photo/QR support, uploads and review/verification status |
@@ -70,3 +72,5 @@ Precise activity targeting and API-backed community ranking are now supplied. Au
 The proxy forwards only documented Swagger resources/methods, adds ngrok-skip-browser-warning, disables caching and preserves upstream JSON status/errors. Old activity paths and the proposed leaderboard path are rejected. Non-JSON successes fail visibly; upstream error statuses are retained. NEXT_PUBLIC_API_BASE_URL optionally bypasses the proxy and requires browser CORS. NEXT_PUBLIC_USE_MOCK_API=true enables the browser-local demo; public env changes require a restart/rebuild.
 
 Read-only live checks on 3 October 2026 confirmed GET metrics/list/detail, activities/filters and tasks. Live detail checks returned carbon_intensity=0, and air_quality values of 0 and later 3; carbon is displayed as returned, and invalid-range AQI is unavailable. A temporary non-JSON metrics failure was also observed; the UI exposes a retry state. No live users or activities were created, edited or deleted during verification. Fixtures test signup and recording safely; contract tests cover point-only writes, exact composite identity, filtering, metric validation, missing/zero values, ranking ties and graceful failures.
+
+A later live check confirmed the detail response contains score=66.66666666666666 while the list has malformed postcode values. Browser verification covers displaying the detail score as 66.7 without the Green Score error and leaving other labels pending.
