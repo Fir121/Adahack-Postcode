@@ -1,0 +1,409 @@
+openapi: 3.0.3
+info:
+  title: Community Activity API
+  description: API for managing users, activities and postcode coordinates.
+  version: 1.0.0
+
+servers:
+  - url: https://api.example.com/v1
+    description: Production
+
+tags:
+  - name: Users
+  - name: Activities
+  - name: Tasks
+  - name: Coordinates
+
+paths:
+  /users:
+    get:
+      tags: [Users]
+      summary: Get list of users
+      operationId: listUsers
+      responses:
+        '200':
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+
+  /users/new:
+    post:
+      tags: [Users]
+      summary: Create a user
+      operationId: createUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserInput'
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /users/{user_id}:
+    parameters:
+      - $ref: '#/components/parameters/UserId'
+    get:
+      tags: [Users]
+      summary: Get a single user
+      operationId: getUser
+      responses:
+        '200':
+          description: The user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Users]
+      summary: Update a user
+      operationId: updateUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserInput'
+      responses:
+        '200':
+          description: User updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Users]
+      summary: Delete a user
+      operationId: deleteUser
+      responses:
+        '204':
+          description: User deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /activities/{user_id}:
+    parameters:
+      - $ref: '#/components/parameters/UserId'
+    get:
+      tags: [Activities]
+      summary: Get activities for a user
+      description: Returns the user's activities, optionally filtered to a single date.
+      operationId: listUserActivities
+      parameters:
+        - name: date
+          in: query
+          required: false
+          description: Only return activities on this date (YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+            example: '2026-10-03'
+      responses:
+        '200':
+          description: List of activities
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ActivitySummary'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags: [Activities]
+      summary: Record an activity for a user
+      description: >
+        The user comes from the path. Points are taken from the task.
+        (task_id, user_id) is a joint key, so a duplicate returns 409.
+      operationId: createUserActivity
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActivityInput'
+      responses:
+        '201':
+          description: Activity created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Activity'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+    put:
+      tags: [Activities]
+      summary: Update an activity for a user
+      description: Finds the activity by (task_id, user_id) and updates its date.
+      operationId: updateUserActivity
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActivityInput'
+      responses:
+        '200':
+          description: Activity updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Activity'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Activities]
+      summary: Delete an activity for a user
+      operationId: deleteUserActivity
+      parameters:
+        - name: task_id
+          in: query
+          required: true
+          description: Task of the activity to delete
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: Activity deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /tasks:
+    get:
+      tags: [Tasks]
+      summary: Get list of tasks
+      operationId: listTasks
+      responses:
+        '200':
+          description: List of tasks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Task'
+
+  /coordinates:
+    get:
+      tags: [Coordinates]
+      summary: Get latitude and longitude for all postcodes
+      operationId: listCoordinates
+      responses:
+        '200':
+          description: List of postcode coordinates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Coordinates'
+
+  /coordinates/{postcode}:
+    get:
+      tags: [Coordinates]
+      summary: Get latitude and longitude for a single postcode
+      operationId: getCoordinates
+      parameters:
+        - name: postcode
+          in: path
+          required: true
+          description: Postcode to look up (e.g. EH1 1YZ)
+          schema:
+            type: string
+            example: EH1 1YZ
+      responses:
+        '200':
+          description: Coordinates for the postcode
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Coordinates'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  parameters:
+    UserId:
+      name: user_id
+      in: path
+      required: true
+      description: ID of the user
+      schema:
+        type: integer
+        format: int64
+        example: 1
+
+  schemas:
+    User:
+      type: object
+      required: [id, name, email, postcode]
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        name:
+          type: string
+          example: Jane Smith
+        email:
+          type: string
+          format: email
+          example: jane@example.com
+        postcode:
+          type: string
+          example: EH1 1YZ
+
+    UserInput:
+      type: object
+      required: [name, email, postcode]
+      properties:
+        name:
+          type: string
+          example: Jane Smith
+        email:
+          type: string
+          format: email
+          example: jane@example.com
+        postcode:
+          type: string
+          example: EH1 1YZ
+
+    Activity:
+      type: object
+      description: Keyed by (task_id, user_id).
+      required: [task_id, user_id, points, date]
+      properties:
+        task_id:
+          type: integer
+          format: int64
+          example: 42
+        user_id:
+          type: integer
+          format: int64
+          example: 1
+        points:
+          type: integer
+          example: 10
+        date:
+          type: string
+          format: date
+          example: '2026-10-03'
+
+    ActivityInput:
+      type: object
+      required: [task_id, date]
+      properties:
+        task_id:
+          type: integer
+          format: int64
+          example: 42
+        date:
+          type: string
+          format: date
+          example: '2026-10-03'
+
+    ActivitySummary:
+      type: object
+      required: [task_id, points, date]
+      properties:
+        task_id:
+          type: integer
+          format: int64
+          example: 42
+        points:
+          type: integer
+          example: 10
+        date:
+          type: string
+          format: date
+          example: '2026-10-03'
+
+    Task:
+      type: object
+      required: [id, name, description, points]
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 42
+        name:
+          type: string
+          example: Park litter pick
+        description:
+          type: string
+          example: Litter pick in the local park
+        points:
+          type: integer
+          example: 10
+
+    Coordinates:
+      type: object
+      required: [postcode, latitude, longitude]
+      properties:
+        postcode:
+          type: string
+          example: EH1 1YZ
+        latitude:
+          type: number
+          format: double
+          minimum: -90
+          maximum: 90
+          example: 55.9533
+        longitude:
+          type: number
+          format: double
+          minimum: -180
+          maximum: 180
+          example: -3.1883
+
+    Error:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+          example: Resource not found
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Conflict:
+      description: Resource already exists
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
