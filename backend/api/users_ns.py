@@ -1,8 +1,7 @@
 from flask import request
 from flask_restx import Namespace, Resource, fields
-import uuid
 
-from backend.models.user import user_model, User
+from backend.models.user import User, UserModel
 
 users_ns = Namespace("users", description="Operations related to users")
 
@@ -32,7 +31,7 @@ class UserList(Resource):
     def get(self):
         """Get list of users with optional filters"""
         filters = request.args.to_dict()  # Extract query parameters as a dictionary
-        return user_model.list(filters), 200
+        return UserModel.list(filters), 200
 
     @users_ns.expect(user_input_model, validate=True)
     @users_ns.marshal_with(user_model_api, code=201)
@@ -40,7 +39,7 @@ class UserList(Resource):
         """Create a user"""
         data = request.json
         user = User(**data)
-        user_model.write(user)
+        UserModel.write(user)
         return user, 201
 
 
@@ -50,27 +49,27 @@ class UserResource(Resource):
     @users_ns.marshal_with(user_model_api)
     def get(self, user_id):
         """Get a single user"""
-        users = user_model.read(user_id)
-        if not users:
+        user = UserModel.read(user_id)
+        if not user:
             return {"message": "User not found"}, 404
-        return users[0], 200
+        return user, 200
 
     @users_ns.expect(user_input_model, validate=True)
     @users_ns.marshal_with(user_model_api)
     def put(self, user_id):
         """Update a user"""
-        users = user_model.read(user_id)
+        users = UserModel.read(user_id)
         if not users:
             return {"message": "User not found"}, 404
 
         data = request.json
         user = User(user_id=user_id, **data)
-        user_model.write(user)
+        UserModel.write(user)
         return user, 200
 
     def delete(self, user_id):
         """Delete a user"""
-        result = user_model.collection.delete_one({"user_id": user_id})
+        result = UserModel.collection.delete_one({"user_id": user_id})
         if result.deleted_count == 0:
             return {"message": "User not found"}, 404
         return "", 204

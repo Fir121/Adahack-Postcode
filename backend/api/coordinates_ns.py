@@ -1,7 +1,7 @@
 import re
 from flask_restx import Namespace, Resource, fields
 from backend.models.base import PostCode
-from backend.utils import get_collection
+from backend.models.coordinates import CoordinatesModel
 
 coordinates_ns = Namespace("coordinates", description="Postcode coordinates")
 
@@ -24,7 +24,7 @@ class CoordinatesList(Resource):
     @coordinates_ns.marshal_list_with(coordinates_model)
     def get(self):
         """Get latitude and longitude for all postcodes"""
-        return list(get_collection("coordinates").find({}, {"_id": 0}).sort("postcode", 1))
+        return CoordinatesModel.list()
 
 
 @coordinates_ns.route("/<string:postcode>")
@@ -38,7 +38,7 @@ class CoordinatesItem(Resource):
         """Get latitude and longitude for a single postcode"""
         postcode = PostCode(postcode)
 
-        doc = get_collection("coordinates").find_one({"postcode": postcode}, {"_id": 0})
+        doc = CoordinatesModel.read(postcode)
         if doc is None:
             coordinates_ns.abort(404, "Postcode not found")
         return doc

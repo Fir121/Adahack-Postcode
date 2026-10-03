@@ -3,7 +3,8 @@ import re
 from attrs import define
 
 from backend.models.base import BaseModel, PostCode
-from backend.utils import get_mongo_db
+from backend.utils import get_collection
+
 
 @define
 class User:
@@ -17,4 +18,4 @@ class User:
             self.user_id = self.email
 
 
-user_model = BaseModel(User, get_mongo_db()["users"], id_fields=["user_id"])
+UserModel = BaseModel(User, get_collection("users"), id_fields=["user_id"])

@@ -4,7 +4,7 @@ import attrs
 from attrs import define
 
 from backend.models.base import BaseModel, PostCode
-from backend.utils import get_mongo_db
+from backend.utils import get_collection
 
 
 @define
@@ -16,4 +16,4 @@ class Activity:
     points: int = 1
 
 
-activity_model = BaseModel(Activity, get_mongo_db()["activities"], id_fields=["task_id", "user_id"])
+ActivityModel = BaseModel(Activity, get_collection("activities"), id_fields=["task_id", "user_id"])

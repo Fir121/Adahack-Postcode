@@ -51,4 +51,4 @@ class BaseModel:
             raise TypeError("key_data must be a dict or str")
 
         documents = self.collection.find(key, {"_id": 0})
-        return [self.model_cls(**doc) for doc in documents]
+        return next(self.model_cls(**doc) for doc in documents)
