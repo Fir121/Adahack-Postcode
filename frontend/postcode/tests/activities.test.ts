@@ -15,6 +15,7 @@ import {
 import { adaptTask, adaptUser } from "../lib/api/adapters";
 import { proxyApiRequest } from "../lib/api/proxy";
 import { dayKey } from "../lib/utils";
+import { greenHourConfig } from "../lib/green-hour";
 
 const user = {
   user_id: "person@example.test",
@@ -169,6 +170,51 @@ test("recording uses backend activity points, history resolves task names and no
     assert.equal(posts, 1);
   } finally {
     apiConfig.useMock = previous;
+  }
+});
+
+test("GreenHour posts doubled fresh task points and regular points when the window expires", async (t) => {
+  const previousMock = apiConfig.useMock;
+  const previousWindow = { ...greenHourConfig };
+  const start = Date.parse("2026-10-03T13:00:00Z");
+  apiConfig.useMock = false;
+  Object.assign(greenHourConfig, {
+    enabled: true,
+    startAt: new Date(start).toISOString(),
+  });
+  storage.set(PROFILE_KEY, user.user_id);
+  const points: number[] = [];
+  t.mock.method(Date, "now", () => start + 1000);
+  t.mock.method(
+    globalThis,
+    "fetch",
+    async (url: string, options: RequestInit) => {
+      if (url.includes("/users/")) return Response.json(user);
+      if (url.includes("/tasks/")) return Response.json(task);
+      if (options.method === "POST") {
+        const input = JSON.parse(options.body as string);
+        points.push(input.points);
+        return Response.json(
+          { ...activity, points: input.points },
+          { status: 201 },
+        );
+      }
+      return Response.json([]);
+    },
+  );
+  try {
+    const input = {
+      taskId: "1",
+      communityId: "eh9-1ab",
+      proof: { declaration: true },
+    };
+    assert.equal((await completeTask(input)).completion.points, 6);
+    t.mock.method(Date, "now", () => start + 3_600_000);
+    assert.equal((await completeTask(input)).completion.points, 3);
+    assert.deepEqual(points, [6, 3]);
+  } finally {
+    apiConfig.useMock = previousMock;
+    Object.assign(greenHourConfig, previousWindow);
   }
 });
 

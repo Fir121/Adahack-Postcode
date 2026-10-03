@@ -20,6 +20,7 @@ import { dateLabel, dayKey, errorMessage } from "@/lib/utils";
 import { formatGreenScore } from "@/lib/scoring";
 import { useTask } from "@/hooks/queries";
 import { ErrorState, LoadingState, IndicatorIcon } from "@/components/ui";
+import { useGreenHour } from "@/components/layout/green-hour";
 
 export function CompletionModal({
   task,
@@ -34,6 +35,7 @@ export function CompletionModal({
   onClose: () => void;
   onComplete: (result: CompletionResponse) => Promise<void>;
 }) {
+  const { active: greenHourActive } = useGreenHour();
   const details = useTask(task.id, !apiConfig.useMock);
   const dialog = useRef<HTMLDialogElement>(null);
   const [proof, setProof] = useState<TaskProof>({});
@@ -65,6 +67,12 @@ export function CompletionModal({
     mutation.mutate();
   }
   const approved = mutation.data?.completion.status === "approved";
+  const basePoints =
+    details.data?.points ?? task.points ?? (apiConfig.useMock ? 1 : undefined);
+  const points =
+    basePoints === undefined
+      ? undefined
+      : basePoints * (greenHourActive ? 2 : 1);
   return (
     <dialog
       ref={dialog}
@@ -137,8 +145,10 @@ export function CompletionModal({
               <>
                 <p className="modal-description">{details.data.description}</p>
                 <p className="task-meta">
-                  {details.data.points}{" "}
-                  {details.data.points === 1 ? "point" : "points"}
+                  {points} {points === 1 ? "point" : "points"}
+                  {greenHourActive && (
+                    <span className="green-hour-points">2× GreenHour</span>
+                  )}
                 </p>
                 <form onSubmit={submit} noValidate>
                   <h3>Done your good thing?</h3>
@@ -226,6 +236,12 @@ export function CompletionModal({
           <h2 id="task-modal-title">{task.title}</h2>
           <div className="task-meta">
             <Clock3 size={15} /> {task.estimatedTime} · {task.effort}
+            <span>
+              · {points} {points === 1 ? "point" : "points"}
+            </span>
+            {greenHourActive && (
+              <span className="green-hour-points">2× GreenHour</span>
+            )}
           </div>
           <p className="modal-description">{task.description}</p>
           <div className="task-why">

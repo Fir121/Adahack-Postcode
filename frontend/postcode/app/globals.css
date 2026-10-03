@@ -222,6 +222,78 @@ select {
   }
 }
 
+/* Daily activity and GreenHour */
+.activity-streak {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  margin: 12px 0 18px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-background);
+}
+.activity-streak strong {
+  font-size: 13px;
+}
+.activity-streak p,
+.streak-note {
+  margin-top: 4px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--color-muted);
+}
+.streak-active {
+  border-color: #efb787;
+  background: #fff6ec;
+}
+.streak-active > svg {
+  flex-shrink: 0;
+  color: #c65b15;
+  fill: #ffdfb3;
+}
+.green-hour-banner {
+  padding: 14px 20px;
+  border-bottom: 1px solid #b5d7a9;
+  background: #eef8e8;
+  text-align: center;
+}
+.green-hour-title {
+  color: #111111;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.8px;
+}
+.green-hour-title > span {
+  color: #237439;
+}
+.green-hour-banner p {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.green-hour-countdown {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 7px;
+  color: #237439;
+  font-size: 18px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+.green-hour-points {
+  display: inline-flex;
+  margin-left: 6px;
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: #eef8e8;
+  color: #237439;
+  font-size: 10px;
+  font-weight: 700;
+}
+
 /* Shared navigation */
 .app-header {
   height: 86px;

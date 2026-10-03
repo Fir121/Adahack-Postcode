@@ -25,13 +25,15 @@ export async function mockLeaderboard(
       userId: member.id,
       name: member.name,
       rank: 0,
-      // Each approved demo action awards one point, including the seeded history.
-      points: db.completions.filter(
-        (completion) =>
-          completion.userId === member.id &&
-          completion.communityId === member.communityId &&
-          completion.status === "approved",
-      ).length,
+      // Older seeded actions predate recorded points and count as one point.
+      points: db.completions
+        .filter(
+          (completion) =>
+            completion.userId === member.id &&
+            completion.communityId === member.communityId &&
+            completion.status === "approved",
+        )
+        .reduce((sum, completion) => sum + (completion.points ?? 1), 0),
     }))
     .sort(
       (a, b) =>

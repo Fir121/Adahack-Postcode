@@ -268,6 +268,7 @@ export function Dashboard() {
           </p>
           <div id="sidebar-content" className="sidebar-content">
             <CommunitySidebar
+              userId={user.data.id}
               community={current}
               own={own}
               view={view}

@@ -25,6 +25,7 @@ import {
 } from "@/hooks/queries";
 import { dateLabel, dayKey, errorMessage } from "@/lib/utils";
 import { ErrorState, IndicatorIcon, LoadingState } from "@/components/ui";
+import { ActivityStreak } from "@/components/tasks/activity-streak";
 
 export function AccountView() {
   const user = useCurrentUser();
@@ -97,6 +98,7 @@ export function AccountView() {
               )}
             </div>
           </dl>
+          <ActivityStreak userId={user.data.id} />
           <Link className="button button-primary" href="/">
             Visit your neighbourhood <ArrowRight size={17} />
           </Link>

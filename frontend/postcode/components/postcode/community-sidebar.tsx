@@ -25,9 +25,12 @@ import { weakestIndicator } from "@/lib/tasks";
 import { dateLabel } from "@/lib/utils";
 import { IndicatorIcon } from "@/components/ui";
 import { TaskFeedbackButton } from "@/components/tasks/task-feedback-button";
+import { ActivityStreak } from "@/components/tasks/activity-streak";
+import { useGreenHour } from "@/components/layout/green-hour";
 
 export type SidebarView = "overview" | "actions" | { indicatorId: string };
 interface SidebarProps {
+  userId: string;
   community: PostcodeCommunity;
   own: boolean;
   view: SidebarView;
@@ -44,6 +47,7 @@ interface SidebarProps {
 }
 
 export function CommunitySidebar(props: SidebarProps) {
+  const { active: greenHourActive } = useGreenHour();
   const { community, view, tasks, own } = props;
   const selected =
     typeof view === "object"
@@ -133,6 +137,7 @@ export function CommunitySidebar(props: SidebarProps) {
                 : "Explore the actions available for your community."}
             </p>
           </div>
+          <ActivityStreak userId={props.userId} />
           {!own && <NeighbourNote onHome={props.onHome} />}
           {props.tasksLoading ? (
             <p className="muted" role="status">
@@ -261,8 +266,13 @@ export function CommunitySidebar(props: SidebarProps) {
                 </p>
                 {recommended.points !== undefined ? (
                   <div className="task-meta">
-                    {recommended.points}{" "}
-                    {recommended.points === 1 ? "point" : "points"}
+                    {recommended.points * (greenHourActive ? 2 : 1)}{" "}
+                    {recommended.points * (greenHourActive ? 2 : 1) === 1
+                      ? "point"
+                      : "points"}
+                    {greenHourActive && (
+                      <span className="green-hour-points">2× GreenHour</span>
+                    )}
                   </div>
                 ) : (
                   <div className="task-meta">
@@ -611,6 +621,11 @@ function ActionCard({
   completed?: boolean;
   onTask: (task: Task) => void;
 }) {
+  const { active } = useGreenHour();
+  const points =
+    task.points === undefined
+      ? undefined
+      : task.points * (active && !completed ? 2 : 1);
   return (
     <article className="action-card-shell">
       <button
@@ -627,9 +642,12 @@ function ActionCard({
         </div>
         <h4>{task.title}</h4>
         <p>{task.whyItMatters}</p>
-        {task.points !== undefined ? (
+        {points !== undefined ? (
           <span className="task-meta">
-            {task.points} {task.points === 1 ? "point" : "points"}
+            {points} {points === 1 ? "point" : "points"}
+            {active && !completed && (
+              <span className="green-hour-points">2× GreenHour</span>
+            )}
           </span>
         ) : (
           <span className="task-meta">

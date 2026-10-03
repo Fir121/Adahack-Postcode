@@ -132,6 +132,142 @@ async function fixtures(
   });
   return { paths, writes, activityWrites, records };
 }
+
+test("daily activity streak appears in tasks and account and updates after recording", async ({
+  page,
+}) => {
+  await page.clock.install({ time: new Date("2026-10-03T12:00:00Z") });
+  const { records } = await fixtures(page);
+  for (const date of ["2026-10-01", "2026-10-02"])
+    records.push({
+      user_id: profile.user_id,
+      task_id: task.task_id,
+      date,
+      points: 1,
+    });
+  await page.goto("/login");
+  await page.getByLabel("Email address").fill(profile.email);
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await page.getByRole("button", { name: "Explore all actions" }).click();
+  await expect(page.locator(".activity-streak")).toContainText("2-day streak");
+  await expect(page.locator(".activity-streak svg")).toBeVisible();
+  await page.locator(".action-card").click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("checkbox").check();
+  await dialog.getByRole("button", { name: "Record action" }).click();
+  await expect(
+    dialog.getByRole("heading", { name: "Action recorded." }),
+  ).toBeVisible();
+  await dialog
+    .getByRole("button", { name: "Back to my neighbourhood" })
+    .click();
+  await expect(page.locator(".activity-streak")).toContainText("3-day streak");
+  await page.getByRole("link", { name: "My Account" }).click();
+  await expect(page.getByRole("heading", { name: "My Account." })).toBeVisible();
+  await expect(page.locator(".activity-streak")).toContainText("3-day streak");
+  await page.clock.setSystemTime(new Date("2026-10-05T12:00:00Z"));
+  await page.clock.runFor(30_100);
+  await expect(page.locator(".activity-streak")).toContainText(
+    "Start your streak",
+  );
+  await expect(page.locator(".activity-streak svg")).toHaveCount(0);
+});
+
+test("GreenHour window survives navigation and refresh, awards double points and expires", async ({
+  page,
+}) => {
+  test.skip(
+    !process.env.E2E_GREEN_HOUR_START_AT,
+    "Build with GreenHour enabled and supply E2E_GREEN_HOUR_START_AT",
+  );
+  const start = Date.parse(process.env.E2E_GREEN_HOUR_START_AT!);
+  await page.clock.install({ time: new Date(start + 600_000) });
+  const { activityWrites } = await fixtures(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/login");
+  await page.getByLabel("Email address").fill(profile.email);
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  const banner = page.getByRole("region", { name: "GreenHour bonus window" });
+  await expect(banner).toBeVisible();
+  await expect(banner.getByRole("timer")).toHaveText(/00:49:\d{2}|00:50:00/);
+  expect(
+    await banner.evaluate(
+      (element) => element.scrollWidth <= element.clientWidth,
+    ),
+  ).toBe(true);
+  await page.getByRole("link", { name: "My Account" }).click();
+  await expect(page.getByRole("heading", { name: "My Account." })).toBeVisible();
+  await expect(banner).toBeVisible();
+  await page.reload();
+  await expect(banner.getByRole("timer")).toHaveText(/00:49:\d{2}|00:50:00/);
+  await page.getByRole("link", { name: "Back to your neighbourhood" }).click();
+  await page.getByRole("button", { name: /EH9 1AB · Green Score/ }).click();
+  await page.getByRole("button", { name: "Take this action" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.locator(".task-meta")).toContainText("2 points");
+  await dialog.getByRole("checkbox").check();
+  await dialog.getByRole("button", { name: "Record action" }).click();
+  await expect(
+    dialog.getByRole("heading", { name: "Action recorded." }),
+  ).toBeVisible();
+  expect(activityWrites).toEqual([
+    {
+      path: `/activities/${dayKey(new Date(start + 600_000))}/${profile.user_id}/${task.task_id}`,
+      body: { points: 2 },
+    },
+  ]);
+  await dialog
+    .getByRole("button", { name: "Back to my neighbourhood" })
+    .click();
+  await page.getByRole("link", { name: "My Account" }).click();
+  await expect(page.locator(".history-list")).toContainText("2 points");
+  await page.clock.setSystemTime(new Date(start + 3_600_000));
+  await page.clock.runFor(1100);
+  await expect(banner).toHaveCount(0);
+  await expect(page.locator(".history-list")).toContainText("2 points");
+});
+
+test("GreenHour hides before start and submits regular points if an open action outlasts the window", async ({
+  page,
+}) => {
+  test.skip(
+    !process.env.E2E_GREEN_HOUR_START_AT,
+    "Build with GreenHour enabled and supply E2E_GREEN_HOUR_START_AT",
+  );
+  const start = Date.parse(process.env.E2E_GREEN_HOUR_START_AT!);
+  await page.clock.install({ time: new Date(start - 60_000) });
+  const { activityWrites } = await fixtures(page);
+  await page.goto("/login");
+  await page.getByLabel("Email address").fill(profile.email);
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Take action together." }),
+  ).toBeVisible();
+  const banner = page.getByRole("region", { name: "GreenHour bonus window" });
+  await expect(banner).toHaveCount(0);
+  await page.clock.setSystemTime(new Date(start + 3_590_000));
+  await page.clock.runFor(1100);
+  await expect(banner).toBeVisible();
+  await page.getByRole("button", { name: "Take this action" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.locator(".task-meta")).toContainText("2 points");
+  await page.clock.setSystemTime(new Date(start + 3_600_000));
+  await page.clock.runFor(1100);
+  await expect(banner).toHaveCount(0);
+  await expect(dialog.locator(".task-meta")).toHaveText("1 point");
+  await dialog.getByRole("checkbox").check();
+  await dialog.getByRole("button", { name: "Record action" }).click();
+  await expect(
+    dialog.getByRole("heading", { name: "Action recorded." }),
+  ).toBeVisible();
+  expect(activityWrites).toEqual([
+    {
+      path: `/activities/${dayKey(new Date(start))}/${profile.user_id}/${task.task_id}`,
+      body: { points: 1 },
+    },
+  ]);
+});
+
 test("live-shaped metrics drive postcode scores, indicators, centroids and tasks", async ({
   page,
 }) => {

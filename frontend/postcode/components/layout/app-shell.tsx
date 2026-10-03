@@ -7,6 +7,7 @@ import { ArrowUpRight, UserRound } from "lucide-react";
 import { useCurrentUser } from "@/hooks/queries";
 import { ErrorState, LoadingState, Wordmark } from "@/components/ui";
 import { errorMessage } from "@/lib/utils";
+import { GreenHourBanner, GreenHourProvider } from "./green-hour";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const user = useCurrentUser();
@@ -27,10 +28,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       />
     );
   return (
-    <>
+    <GreenHourProvider>
       <a className="skip-link" href="#main-content">
         Skip to content
       </a>
+      <GreenHourBanner />
       <header className="app-header">
         <nav className="navbar" aria-label="Main navigation">
           <a
@@ -47,6 +49,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <Link
             className={`nav-account ${pathname === "/account" ? "nav-active" : ""}`}
             href="/account"
+            aria-label="My Account"
             aria-current={pathname === "/account" ? "page" : undefined}
           >
             <span>My Account</span>
@@ -57,6 +60,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </nav>
       </header>
       {children}
-    </>
+    </GreenHourProvider>
   );
 }

@@ -13,6 +13,7 @@ import { readDatabase, writeDatabase, type MockDatabase } from "./store";
 import { isPostcodeFormat, normalizePostcode } from "@/lib/utils";
 import { greenLevel } from "@/lib/scoring";
 import { isTaskAvailable, validateProof } from "@/lib/tasks";
+import { greenHourPoints } from "@/lib/green-hour";
 
 function requireUser(db: MockDatabase): User {
   const user = db.accounts.find((a) => a.user.id === db.sessionUserId)?.user;
@@ -183,6 +184,7 @@ export async function mockCompleteTask(
     taskTitle: task.title,
     category: task.category,
     targetIndicators: task.targetIndicators,
+    points: greenHourPoints(task.points ?? 1),
     completedAt: new Date().toISOString(),
     status: "approved",
     proofStatus: "approved",

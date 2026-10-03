@@ -143,7 +143,7 @@ export function metricIndicators(
   const air = metric.air_quality;
   const shared = {
     status: "unknown" as const,
-    source: "carbonintensity.org" as const,
+    source: "carbonintensity.org.uk" as const,
     provenance: "measured" as const,
   };
   return [

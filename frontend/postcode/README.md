@@ -108,3 +108,20 @@ The desktop demo target is Chrome; the mobile experience uses a bottom drawer ra
 ## Task feedback
 
 Every suggested action and task card has a round feedback link with the tooltip “Give feedback on this task”. Completed tasks retain their feedback link. By default it opens `/feedback?task_id=...`, a simple task-specific form with a rating and written feedback. Until a feedback API is provided, submissions are saved only in this browser (`our-patch-task-feedback-v1`) and can be downloaded as JSON to share. Set `NEXT_PUBLIC_TASK_FEEDBACK_URL` to use a static external form instead; rebuild/restart after changing it.
+
+## Daily streaks and GreenHour
+
+Tasks and My Account show the signed-in user's consecutive daily streak from the existing `GET /activities?user_id=...` history. One or more recorded actions count as one London calendar day; approved demo actions also count. Pending/rejected actions and other users do not count. A streak ending yesterday remains active until today's deadline; a missed full day resets it. The count refreshes after recording, at day boundaries, and when returning to the tab. An activity list failure displays a retry rather than a false zero. No new streak endpoint is needed, provided the API returns the user's full history.
+
+GreenHour is off by default. Set these in `.env.local`, then rebuild/restart:
+
+```dotenv
+NEXT_PUBLIC_GREEN_HOUR_ENABLED=true
+NEXT_PUBLIC_GREEN_HOUR_START_AT=2026-10-03T14:00:00+01:00
+```
+
+Replace the example with your window's actual start time, including `Z` or an explicit timezone offset. The banner appears on protected application pages from this shared start until exactly one hour later, then disappears. A disabled, missing, invalid, future or expired window hides the banner and uses regular points. The timer survives refresh/navigation and uses the current clock rather than counting interval ticks; changing these public environment variables requires a new build.
+
+During the window, task cards/details show double points and the dated activity POST sends double the task endpoint's current points. The window is checked again immediately before submission, so an action submitted after expiry uses regular points. Existing activity totals are displayed as returned, never doubled again. Mock mode records bonus points in history and rankings, with older seeded actions counting as one point. GreenHour multiplies action points, not the environmental Green Score.
+
+For this POC, bonus eligibility uses the browser clock and public configuration. The backend should own window timing and point calculation before this becomes authoritative: otherwise clients can alter submitted points. A future promotion endpoint could supply the active window and multiplier, with the activity API awarding the final points.

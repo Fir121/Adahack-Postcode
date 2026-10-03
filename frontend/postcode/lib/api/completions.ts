@@ -14,6 +14,7 @@ import {
   getActivities,
 } from "./activities";
 import { dayKey } from "@/lib/utils";
+import { greenHourPoints } from "@/lib/green-hour";
 
 export async function getCompletionHistory(
   userId?: string,
@@ -57,7 +58,10 @@ export async function completeTask(
     throw new ApiError("You have already recorded this action today.", 409);
   const activity = await createActivity(
     { userId: user.id, taskId: input.taskId, date },
-    { points: task.points },
+    {
+      points:
+        task.points === undefined ? undefined : greenHourPoints(task.points),
+    },
   );
   return {
     completion: activityToCompletion(activity, user, [task]),
