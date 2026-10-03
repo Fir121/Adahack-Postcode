@@ -2,3 +2,6 @@
 scripts/*.csv
 scripts/generated/
 .DS_Store
+__pycache__/
+backend/logs/
+frontend/postcode/logs/

@@ -1,10 +1,14 @@
 import { validActivityDate } from "./activities";
+import { logApiEvent, logRoute } from "./logging";
 
 // Forward only documented Swagger resources and methods, never an arbitrary URL.
 export async function proxyApiRequest(
   request: Request,
   segments: string[],
 ): Promise<Response> {
+  const requestId = crypto.randomUUID();
+  const started = performance.now();
+  const route = logRoute(segments);
   const [resource, id] = segments;
   const read = request.method === "GET";
   const validSegments = segments.every(
@@ -40,7 +44,28 @@ export async function proxyApiRequest(
   const path =
     segments.map(encodeURIComponent).join("/") +
     (["coordinates", "metrics"].includes(resource) && !id ? "/" : "");
+  const headers = {
+    "Content-Type": "application/json",
+    "Cache-Control": "no-store",
+    "X-Request-ID": requestId,
+  };
+  let upstreamHost: string | undefined;
+  const log = (
+    level: "info" | "warn" | "error",
+    fields: Record<string, string | number | null | undefined>,
+  ) =>
+    logApiEvent(level, {
+      request_id: requestId,
+      method: request.method,
+      route,
+      duration_ms: Math.round(performance.now() - started),
+      timeout_ms: 12_000,
+      upstream_host: upstreamHost,
+      ...fields,
+    });
   try {
+    // Log the host only, never credentials, request bodies, or query values.
+    upstreamHost = new URL(upstream).host;
     const query = new URLSearchParams();
     const incoming = new URL(request.url).searchParams;
     if (activityList)
@@ -54,6 +79,7 @@ export async function proxyApiRequest(
         headers: {
           Accept: "application/json",
           "ngrok-skip-browser-warning": "true",
+          "X-Request-ID": requestId,
           ...(!read && request.method !== "DELETE"
             ? { "Content-Type": "application/json" }
             : {}),
@@ -67,31 +93,73 @@ export async function proxyApiRequest(
       },
     );
     const body = await response.text();
-    if (
-      body &&
-      !response.headers.get("content-type")?.includes("application/json")
-    )
+    const contentType = response.headers.get("content-type");
+    const ngrokError =
+      response.headers.get("ngrok-error-code") ??
+      body.match(/ERR_NGROK_\d+/)?.[0];
+    if (body && !contentType?.includes("application/json")) {
+      const status = response.status >= 400 ? response.status : 502;
+      log("error", {
+        event: "upstream_non_json",
+        status,
+        upstream_status: response.status,
+        upstream_host: upstreamHost,
+        content_type: contentType,
+        ngrok_error_code: ngrokError,
+      });
       return Response.json(
         {
           message:
             "The development API returned a non-JSON response. Check that the server and tunnel are running.",
+          code: "UPSTREAM_NON_JSON",
+          requestId,
         },
-        { status: response.status >= 400 ? response.status : 502 },
+        { status, headers },
       );
+    }
+    log(
+      response.status >= 500
+        ? "error"
+        : response.status >= 400
+          ? "warn"
+          : "info",
+      {
+        event: response.ok ? "upstream_response" : "upstream_http_error",
+        status: response.status,
+        upstream_status: response.status,
+        upstream_host: upstreamHost,
+        content_type: contentType,
+        ngrok_error_code: ngrokError,
+        upstream_request_id: response.headers.get("x-request-id"),
+      },
+    );
     return new Response(body || null, {
       status: response.status,
-      headers: {
-        "Content-Type": "application/json",
-        "Cache-Control": "no-store",
-      },
+      headers,
     });
-  } catch {
+  } catch (error) {
+    const timeout =
+      error instanceof Error &&
+      ["TimeoutError", "AbortError"].includes(error.name);
+    const cause =
+      error instanceof Error
+        ? (error.cause as { code?: string } | undefined)
+        : undefined;
+    log("error", {
+      event: timeout ? "upstream_timeout" : "upstream_connection_error",
+      status: timeout ? 504 : 502,
+      error_type: error instanceof Error ? error.name : "UnknownError",
+      error_code: cause?.code,
+    });
     return Response.json(
       {
-        message:
-          "The development API is unavailable. Check that the server and tunnel are running, then try again.",
+        message: timeout
+          ? "The development API took too long to respond. Please try again."
+          : "The development API is unavailable. Check that the server and tunnel are running, then try again.",
+        code: timeout ? "UPSTREAM_TIMEOUT" : "UPSTREAM_CONNECTION_ERROR",
+        requestId,
       },
-      { status: 502 },
+      { status: timeout ? 504 : 502, headers },
     );
   }
 }

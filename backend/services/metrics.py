@@ -1,10 +1,13 @@
 import requests
+import logging
+import time
 
 from backend.services.load_postcodes import get_postcode_data
 
 CARBON_INTENSITY_URL = "https://api.carbonintensity.org.uk/regional/postcode/{outcode}"
 AIR_QUALITY_URL = "https://air-quality-api.open-meteo.com/v1/air-quality"
 TIMEOUT = 15
+logger = logging.getLogger(__name__)
 
 # UK Daily Air Quality Index (DAQI) band thresholds in µg/m³: the lower bound of
 # bands 2-10 for each pollutant. https://uk-air.defra.gov.uk/air-pollution/daqi
@@ -37,6 +40,8 @@ def postcode_to_outcode(postcode: str) -> str:
 def get_carbon_intensity(postcode: str) -> tuple[float, str] | None:
     """Returns (carbon intensity in gCO2/kWh, rating) for the postcode's area,
     e.g. (130.0, "moderate"). Returns None if something goes wrong."""
+    started = time.monotonic()
+    logger.info("external_service_started", extra={"provider": "carbon_intensity", "timeout_seconds": TIMEOUT})
     try:
         resp = requests.get(
             CARBON_INTENSITY_URL.format(outcode=postcode_to_outcode(postcode)),
@@ -50,9 +55,15 @@ def get_carbon_intensity(postcode: str) -> tuple[float, str] | None:
         # NEW: return the number AND the rating together
         #   intensity["forecast"] -> the number, e.g. 130
         #   intensity["index"]    -> the rating, e.g. "moderate"
-        return float(intensity["forecast"]), intensity["index"]
+        result = float(intensity["forecast"]), intensity["index"]
+        logger.info("external_service_completed", extra={"provider": "carbon_intensity", "upstream_status": resp.status_code,
+            "duration_ms": round((time.monotonic() - started) * 1000)})
+        return result
 
-    except (requests.RequestException, KeyError, IndexError, TypeError, ValueError):
+    except (requests.RequestException, KeyError, IndexError, TypeError, ValueError) as error:
+        logger.warning("external_service_failed", extra={"provider": "carbon_intensity", "error_type": type(error).__name__,
+            "upstream_status": getattr(getattr(error, "response", None), "status_code", None),
+            "duration_ms": round((time.monotonic() - started) * 1000), "timeout_seconds": TIMEOUT})
         return None
 def daqi_band(pollutant: str, value: float) -> int:
     return 1 + sum(value >= t for t in DAQI_THRESHOLDS[pollutant])
@@ -62,8 +73,16 @@ def get_air_quality(postcode: str) -> int | None:
     """Current UK DAQI (1 low - 10 very high) for the postcode, computed from
     Open-Meteo air quality data. The index is the worst band across all pollutants.
     None if unavailable."""
+    started = time.monotonic()
+    provider = "postcode_lookup"
+    logger.info("external_service_started", extra={"provider": provider, "timeout_seconds": TIMEOUT})
     try:
         latitude, longitude = postcode_to_coordinates(postcode)
+        logger.info("external_service_completed", extra={"provider": provider,
+            "duration_ms": round((time.monotonic() - started) * 1000)})
+        provider = "air_quality"
+        started = time.monotonic()
+        logger.info("external_service_started", extra={"provider": provider, "timeout_seconds": TIMEOUT})
         resp = requests.get(
             AIR_QUALITY_URL,
             params={
@@ -78,15 +97,21 @@ def get_air_quality(postcode: str) -> int | None:
         )
         resp.raise_for_status()
         hourly = resp.json()["hourly"]
-    except (requests.RequestException, KeyError, IndexError, TypeError, ValueError):
+        bands = []
+        for pollutant, hours in DAQI_AVERAGING_HOURS.items():
+            values = [v for v in hourly.get(pollutant, [])[-hours:] if v is not None]
+            if values:
+                bands.append(daqi_band(pollutant, sum(values) / len(values)))
+        if not bands:
+            raise ValueError("No air-quality measurements")
+        logger.info("external_service_completed", extra={"provider": provider, "upstream_status": resp.status_code,
+            "duration_ms": round((time.monotonic() - started) * 1000)})
+        return max(bands)
+    except (requests.RequestException, KeyError, IndexError, TypeError, ValueError) as error:
+        logger.warning("external_service_failed", extra={"provider": provider, "error_type": type(error).__name__,
+            "upstream_status": getattr(getattr(error, "response", None), "status_code", None),
+            "duration_ms": round((time.monotonic() - started) * 1000), "timeout_seconds": TIMEOUT})
         return None
-
-    bands = []
-    for pollutant, hours in DAQI_AVERAGING_HOURS.items():
-        values = [v for v in hourly.get(pollutant, [])[-hours:] if v is not None]
-        if values:
-            bands.append(daqi_band(pollutant, sum(values) / len(values)))
-    return max(bands) if bands else None
 
 
 # use this to test your code!
@@ -96,9 +121,8 @@ if __name__ == "__main__":
     print(get_air_quality("EH9 1AB"))
     print(get_carbon_intensity("SW1A 1AA"))
 
-    print(get_carbon_intensity("EH9 1AB"))   # (0.0, 'very low')
-print(get_carbon_intensity("SW1A 1AA"))  # (130.0, 'moderate')
-
-# Or split the two values into separate variables:
-value, rating = get_carbon_intensity("SW1A 1AA")
-print(f"{value} g/kWh ({rating})")       # 130.0 g/kWh (moderate)
+    # Examples only run when this module is executed directly, never at startup.
+    carbon = get_carbon_intensity("SW1A 1AA")
+    if carbon is not None:
+        value, rating = carbon
+        print(f"{value} g/kWh ({rating})")

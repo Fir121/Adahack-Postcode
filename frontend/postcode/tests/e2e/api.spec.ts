@@ -210,6 +210,7 @@ test("GreenHour window survives navigation and refresh, awards double points and
   await expect(
     dialog.getByRole("heading", { name: "Action recorded." }),
   ).toBeVisible();
+  await expect(dialog.locator(".success-summary")).toHaveText("2 points");
   expect(activityWrites).toEqual([
     {
       path: `/activities/${dayKey(new Date(start + 600_000))}/${profile.user_id}/${task.task_id}`,
@@ -260,6 +261,7 @@ test("GreenHour hides before start and submits regular points if an open action 
   await expect(
     dialog.getByRole("heading", { name: "Action recorded." }),
   ).toBeVisible();
+  await expect(dialog.locator(".success-summary")).toHaveText("1 point");
   expect(activityWrites).toEqual([
     {
       path: `/activities/${dayKey(new Date(start))}/${profile.user_id}/${task.task_id}`,

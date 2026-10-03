@@ -19,6 +19,29 @@ act_model = activities_ns.model(
     },
 )
 
+activity_input_model = activities_ns.model(
+    "ActivityInput",
+    {
+        "points": fields.Integer(
+            required=False, description="Awarded activity points, including any bonus"
+        ),
+    },
+)
+
+
+def activity_points(default: int) -> int:
+    payload = request.get_json(silent=True)
+    if payload is None:
+        if request.get_data():
+            activities_ns.abort(400, "Provide a JSON object with valid activity points")
+        payload = {}
+    if not isinstance(payload, dict):
+        activities_ns.abort(400, "Provide a JSON object with valid activity points")
+    points = payload.get("points", default)
+    if type(points) is not int or points < 0:
+        activities_ns.abort(400, "Activity points must be a non-negative integer")
+    return points
+
 
 @activities_ns.route("")
 class ActivitiesListResource(Resource):
@@ -51,6 +74,7 @@ class ActivitiesListResource(Resource):
 @activities_ns.param("user_id", "The user identifier")
 @activities_ns.param("task_id", "The task identifier")
 class ActivityResource(Resource):
+    @activities_ns.expect(activity_input_model)
     @activities_ns.marshal_with(act_model, code=201)
     def post(self, date, user_id, task_id):
         """Record an activity"""
@@ -71,12 +95,12 @@ class ActivityResource(Resource):
             user_id=user_id,
             date=datetime.date.fromisoformat(date),
             postcode=user.postcode,
-            points=task.points
+            points=activity_points(task.points),
         )
         ActivityModel.write(activity)
         return activity, 201
 
-    @activities_ns.expect(validate=True)
+    @activities_ns.expect(activity_input_model)
     @activities_ns.marshal_with(act_model)
     def put(self, date, user_id, task_id):
         """Update an activity"""
@@ -84,15 +108,11 @@ class ActivityResource(Resource):
         if not old_activity:
             return {"message": "Activity not found"}, 404
 
-        task = TaskModel.read(task_id)
-        if not task_id:
-            return {"message": "Task not found"}, 404
-
         activity = Activity(
             task_id=task_id,
             user_id=user_id,
             date=datetime.date.fromisoformat(date),
-            points=task.points,
+            points=activity_points(old_activity[0].points),
             postcode=old_activity[0].postcode,
         )
         ActivityModel.write(activity)

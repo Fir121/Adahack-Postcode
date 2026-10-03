@@ -39,7 +39,7 @@ Login fetches GET /users, matches email case-insensitively after trimming whites
 
 ## Activities, history and refresh
 
-The Activity schema requires task_id, user_id and date; points and postcode are optional. The UI reads the latest task points before POST, puts the London calendar date/user/task in the URL, and sends only {"points": task.points}. It displays returned activity points when present; missing points are not fabricated as zero. The server should determine or validate awards against the task catalogue, even though this POC accepts a points field.
+The Activity schema requires task_id, user_id and date; points and postcode are optional. The UI reads the latest task points before POST, puts the London calendar date/user/task in the URL, and sends only {"points": task.points}, doubled during GreenHour. It displays returned activity points when present; missing points are not fabricated as zero. The backend accepts and persists non-negative integer points from the write body, including zero and bonus awards. If points are omitted, POST defaults to the task's base points and PUT preserves the existing activity's award. The server should determine or validate awards against the task catalogue before this POC becomes authoritative.
 
 The frontend allows each task once per London day until task repeat metadata is supplied. It checks GET /activities?date=...&user_id=...&task_id=... before POST and disables already-recorded tasks. Backend uniqueness/idempotency must still protect against simultaneous tabs/retries. The composite date/user/task key provides stable display identity; duplicate list identities are rejected.
 

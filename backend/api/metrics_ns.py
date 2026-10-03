@@ -1,4 +1,7 @@
 import datetime
+import logging
+import time
+from collections import Counter
 
 from flask_restx import Namespace, Resource, fields
 
@@ -7,12 +10,13 @@ from backend.services.metrics import get_carbon_intensity, get_air_quality
 from backend.utils import get_mongo_db, get_collection
 
 metrics_ns = Namespace("metrics", description="Operations related to metrics")
+logger = logging.getLogger(__name__)
 
 postcode_metric_model = metrics_ns.model(
     "PostcodeMetric",
     {
         "postcode": fields.String(required=True, description="Postcode"),
-        "score": fields.Integer(required=True, description="Total score for the postcode"),
+        "score": fields.Float(required=True, description="Total score for the postcode"),
     },
 )
 
@@ -55,6 +59,8 @@ class PostcodeMetricsResource(Resource):
     def get(self):
         """Get total points for each postcode"""
         today = datetime.date.today()
+        started = time.monotonic()
+        logger.info("metrics_database_started", extra={"provider": "mongodb"})
         collection = get_collection("activities")
         pipeline = [
             {"$match": {"date": {"$gte": f"{today.year}-{today.month:02d}-01"}}},
@@ -63,10 +69,14 @@ class PostcodeMetricsResource(Resource):
             {"$sort": {"postcode": 1}}
         ]
         points_per_postcode = list(collection.aggregate(pipeline))
+        user_counts = Counter(user.postcode for user in UserModel.list()) if points_per_postcode else Counter()
         score_per_postcode = []
-        for postcode, total_points in points_per_postcode:
-            num_users = sum(1 for u in UserModel.list({"postcode": postcode}))
+        for row in points_per_postcode:
+            postcode, total_points = row["postcode"], row["total_points"]
+            num_users = user_counts[postcode]
             score_per_postcode.append({"postcode": postcode, "score": min(total_points/(num_users * today.day) * 100, 100) if num_users > 0 else 0})
+        logger.info("metrics_database_completed", extra={"provider": "mongodb", "count": len(score_per_postcode),
+            "duration_ms": round((time.monotonic() - started) * 1000)})
         return score_per_postcode
 
 
@@ -77,6 +87,8 @@ class PostcodeDetailMetricsResource(Resource):
     def get(self, postcode):
         """Get metrics for a postcode"""
         today = datetime.date.today()
+        started = time.monotonic()
+        logger.info("metrics_database_started", extra={"provider": "mongodb"})
         collection = get_mongo_db()["activities"]
         pipeline = [
             {"$match": {"postcode": postcode, "date": {"$gte": f"{today.year}-{today.month:02d}-01"}}},
@@ -100,10 +112,13 @@ class PostcodeDetailMetricsResource(Resource):
             {"$sort": {"points": -1}}
         ]
         users = list(collection.aggregate(pipeline))
+        logger.info("metrics_database_completed", extra={"provider": "mongodb", "count": len(users),
+            "duration_ms": round((time.monotonic() - started) * 1000)})
+        carbon = get_carbon_intensity(postcode)
 
         return {
             "postcode": postcode,
-            "carbon_intensity": get_carbon_intensity(postcode)[0],
+            "carbon_intensity": carbon[0] if carbon is not None else None,
             "air_quality": get_air_quality(postcode),
             "score": sum(user["points"] for user in users) / (len(users) * today.day) * 100 if users else 0,
             "users": users,
