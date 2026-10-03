@@ -229,8 +229,10 @@ paths:
   /metrics/{postcode}:
     get:
       tags: [Metrics]
-      summary: Get users in a postcode with their points
-      description: Returns the users in the postcode, ordered by points (highest first).
+      summary: Get metrics for a postcode
+      description: >
+        Returns the postcode's carbon intensity and air quality, plus the
+        users in the postcode with their points (ordered highest first).
       operationId: getPostcodeUserMetrics
       parameters:
         - name: postcode
@@ -242,13 +244,11 @@ paths:
             example: EH1 1YZ
       responses:
         '200':
-          description: Users in the postcode, ordered by points descending
+          description: Metrics for the postcode
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/UserMetric'
+                $ref: '#/components/schemas/PostcodeDetailMetric'
         '404':
           $ref: '#/components/responses/NotFound'
 
@@ -415,6 +415,31 @@ components:
         total_points:
           type: integer
           example: 250
+
+    PostcodeDetailMetric:
+      type: object
+      required: [postcode, carbon_intensity, air_quality, users]
+      properties:
+        postcode:
+          type: string
+          example: EH1 1YZ
+        carbon_intensity:
+          type: number
+          nullable: true
+          description: Carbon intensity of electricity in gCO2/kWh (null if unavailable).
+          example: 142.5
+        air_quality:
+          type: integer
+          nullable: true
+          description: Air quality index, 1 (low) to 10 (very high) (null if unavailable).
+          minimum: 1
+          maximum: 10
+          example: 3
+        users:
+          type: array
+          description: Users in the postcode, ordered by points descending.
+          items:
+            $ref: '#/components/schemas/UserMetric'
 
     UserMetric:
       type: object
