@@ -125,3 +125,7 @@ Replace the example with your window's actual start time, including `Z` or an ex
 During the window, task cards/details show double points and the dated activity POST sends double the task endpoint's current points. The window is checked again immediately before submission, so an action submitted after expiry uses regular points. Existing activity totals are displayed as returned, never doubled again. Mock mode records bonus points in history and rankings, with older seeded actions counting as one point. GreenHour multiplies action points, not the environmental Green Score.
 
 For this POC, bonus eligibility uses the browser clock and public configuration. The backend should own window timing and point calculation before this becomes authoritative: otherwise clients can alter submitted points. A future promotion endpoint could supply the active window and multiplier, with the activity API awarding the final points.
+
+## Metrics logging
+
+Structured request/error logs now persist in `logs/api-proxy.log` and the backend's `backend/logs/api.log`, with matching `X-Request-ID` values, dependency timings and redacted exception tracebacks. Proxy timeouts return 504; upstream 503 responses retain their status. See [metrics diagnostics and configuration](docs/metrics-logging.md).

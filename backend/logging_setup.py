@@ -24,7 +24,7 @@ class JsonFormatter(logging.Formatter):
             "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
             "level": record.levelname.lower(),
             "service": "backend",
-            "event": "request_exception" if record.exc_info else record.getMessage(),
+            "event": "request_exception" if record.exc_info and has_request_context() else record.getMessage(),
         }
         if has_request_context():
             data.update(
@@ -39,6 +39,12 @@ class JsonFormatter(logging.Formatter):
             data["error_type"] = record.exc_info[0].__name__
             data["traceback"] = self.formatException(record.exc_info)
         return redact(json.dumps(data, default=str))
+
+
+class FlaskExceptionFilter(logging.Filter):
+    def filter(self, record):
+        # The signal already recorded this traceback, including in debug mode.
+        return not (record.exc_info and has_request_context() and getattr(g, "exception_logged", False))
 
 
 def configure_logging(app):
@@ -65,9 +71,15 @@ def configure_logging(app):
     app.logger.handlers = list(logger.handlers)
     app.logger.setLevel(level)
     app.logger.propagate = False
+    for previous in list(app.logger.filters):
+        if isinstance(previous, FlaskExceptionFilter):
+            app.logger.removeFilter(previous)
+    app.logger.addFilter(FlaskExceptionFilter())
 
     def request_exception(sender, exception, **extra):
         logger.error("request_exception", exc_info=(type(exception), exception, exception.__traceback__))
+        if has_request_context():
+            g.exception_logged = True
 
     # This also runs in debug mode, where Flask otherwise propagates exceptions.
     got_request_exception.connect(request_exception, app, weak=False)
@@ -77,6 +89,7 @@ def configure_logging(app):
         supplied = request.headers.get("X-Request-ID", "")
         g.request_id = supplied if re.fullmatch(r"[A-Za-z0-9_-]{1,64}", supplied) else str(uuid.uuid4())
         g.request_started = time.monotonic()
+        g.exception_logged = False
         logger.info("request_started")
 
     @app.after_request

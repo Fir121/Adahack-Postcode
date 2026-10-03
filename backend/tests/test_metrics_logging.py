@@ -66,7 +66,7 @@ class LoggingTests(unittest.TestCase):
         response = self.app.test_client().get("/metrics/", headers={"X-Request-ID": "proxy-request-456"})
         self.assertEqual(response.status_code, 500)
         errors = [row for row in self.logs() if row["event"] == "request_exception"]
-        self.assertTrue(errors)
+        self.assertEqual(len(errors), 1)
         self.assertEqual(errors[0]["request_id"], "proxy-request-456")
         self.assertEqual(errors[0]["error_type"], "RuntimeError")
         self.assertIn("Traceback", errors[0]["traceback"])
@@ -135,6 +135,20 @@ class MetricsTests(unittest.TestCase):
              self.assertLogs("metrics_service_under_test", level="WARNING") as captured:
             self.assertIsNone(service.get_air_quality("EH9 1AB"))
         self.assertEqual(captured.records[0].provider, "postcode_lookup")
+
+    def test_application_startup_does_not_call_environmental_apis(self):
+        with tempfile.TemporaryDirectory() as directory, \
+             patch.dict("os.environ", {"BACKEND_LOG_FILE": str(Path(directory) / "api.log")}), \
+             patch("backend.utils.get_collection", return_value=MagicMock()), \
+             patch("requests.get") as get, patch("requests.post") as post:
+            from backend.api import create_app
+            app = create_app()
+            get.assert_not_called()
+            post.assert_not_called()
+            response = app.test_client().get("/api/v1/swagger.json")
+            self.assertEqual(response.status_code, 200)
+            self.assertIn("/metrics/", response.json["paths"])
+            LoggingTests.close_handlers()
 
 
 if __name__ == "__main__":

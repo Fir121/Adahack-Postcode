@@ -1,5 +1,6 @@
 import { validActivityDate } from "./activities";
 import { logApiEvent, logRoute } from "./logging";
+import { apiTimeouts } from "./config";
 
 // Forward only documented Swagger resources and methods, never an arbitrary URL.
 export async function proxyApiRequest(
@@ -59,7 +60,7 @@ export async function proxyApiRequest(
       method: request.method,
       route,
       duration_ms: Math.round(performance.now() - started),
-      timeout_ms: 12_000,
+      timeout_ms: apiTimeouts.proxyMs,
       upstream_host: upstreamHost,
       ...fields,
     });
@@ -90,7 +91,7 @@ export async function proxyApiRequest(
             ? undefined
             : await request.text(),
         cache: "no-store",
-        signal: AbortSignal.timeout(12_000),
+        signal: AbortSignal.timeout(apiTimeouts.proxyMs),
       },
     );
     const body = await response.text();

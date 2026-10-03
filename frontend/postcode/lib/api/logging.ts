@@ -23,10 +23,14 @@ export function logApiEvent(
   });
   console[level](line);
   try {
-    const file = resolve(process.env.API_LOG_FILE ?? "logs/api-proxy.log");
+    // Runtime-generated logs are not assets to include in deployment tracing.
+    const file = resolve(
+      /* turbopackIgnore: true */ process.env.API_LOG_FILE ??
+        "logs/api-proxy.log",
+    );
     mkdirSync(dirname(file), { recursive: true });
     try {
-      if (statSync(file).size >= 5 * 1024 * 1024) {
+      if (statSync(/* turbopackIgnore: true */ file).size >= 5 * 1024 * 1024) {
         // One previous file bounds local storage; stdout remains available to hosts.
         renameSync(file, file + ".1");
       }
